@@ -55,7 +55,7 @@
 
 ### 1. 准备采集器
 
-在仓库根目录双击 `安装环境.cmd`。它会创建本机虚拟环境、安装依赖，并从公开样例生成私有的 `we-mp-rss/data/config.yaml`。
+在 Windows 文件资源管理器中双击仓库根目录的 `安装环境.cmd`。在 PowerShell 中请运行 `.\安装环境.cmd`（必须带 `.\`）。它会创建本机虚拟环境、安装依赖，并从公开样例生成私有的 `we-mp-rss/data/config.yaml`。
 
 也可以在 PowerShell 中手工执行：
 

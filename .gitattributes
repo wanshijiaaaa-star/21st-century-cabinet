@@ -1,5 +1,6 @@
 * text=auto
-*.cmd text eol=crlf
+# Keep CRLF bytes in the repository so GitHub ZIP downloads also run in cmd.exe.
+*.cmd -text whitespace=cr-at-eol
 *.ps1 text eol=crlf
 *.sh text eol=lf
 *.py text eol=lf
