@@ -65,6 +65,34 @@
   color: var(--accent);
 }
 
+.trash-icon {
+  display: block;
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+}
+
+.article-trash-action {
+  display: grid;
+  place-items: center;
+}
+
+.nav-trash-icon {
+  width: 14px;
+  height: 14px;
+  margin: 0 auto;
+}
+
+.trash-empty-mark {
+  display: grid;
+  place-items: center;
+}
+
+.empty-trash-icon {
+  width: 44px;
+  height: 44px;
+}
+
 .trash-summary {
   display: flex;
   align-items: center;
