@@ -1,0 +1,153 @@
+.cleanup-toggle,
+.cleanup-exit,
+.cleanup-select-all {
+  background: var(--bg);
+}
+
+.cleanup-count {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.cleanup-delete,
+.reader-trash-action {
+  color: var(--accent);
+}
+
+.cleanup-delete:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--line));
+}
+
+.cleanup-delete:disabled {
+  cursor: default;
+  opacity: .45;
+}
+
+.cleanup-rank {
+  display: grid;
+  place-items: start center;
+}
+
+.cleanup-checkbox {
+  appearance: none;
+  width: 19px;
+  height: 19px;
+  margin: 2px 0 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: var(--panel);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.cleanup-checkbox:checked {
+  border-color: var(--ink);
+  background: var(--ink);
+}
+
+.cleanup-checkbox:checked::after {
+  content: "✓";
+  color: var(--panel);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.cleanup-checkbox:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.article-trash-action:hover,
+.reader-trash-action:hover {
+  color: var(--accent);
+}
+
+.trash-summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 15px 0 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.trash-summary .filter-spacer {
+  flex: 1;
+}
+
+.trash-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  padding: 20px 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.trash-card:first-child {
+  border-top: 1px solid var(--line);
+}
+
+.trash-card h2 {
+  margin: 5px 0 7px;
+  font-family: var(--serif);
+  font-size: 20px;
+  line-height: 1.45;
+}
+
+.trash-card p {
+  max-width: 760px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.trash-meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.trash-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.trash-purge,
+.trash-clear {
+  color: var(--accent);
+}
+
+.toast.with-action {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  pointer-events: auto;
+}
+
+.toast.with-action button {
+  border: 0;
+  border-left: 1px solid color-mix(in srgb, var(--panel) 32%, transparent);
+  background: transparent;
+  color: var(--panel);
+  padding: 0 0 0 13px;
+  font-weight: 700;
+}
+
+@media (max-width: 700px) {
+  .filterbar .cleanup-count {
+    display: none;
+  }
+
+  .trash-card {
+    grid-template-columns: 1fr;
+    gap: 13px;
+  }
+
+  .trash-actions {
+    justify-content: flex-start;
+  }
+}

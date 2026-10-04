@@ -48,17 +48,19 @@ async function cabinetDeleteAnnotation(id){
 const cabinetOriginalPageInfo=pageInfo;
 pageInfo=function(){
   if(state.view==='notes')return ['READING NOTES','札记','按文章归拢你的划线与随手笔记。'];
+  if(state.view==='trash')return ['RECYCLE BIN','回收站','删除的文章在这里保留 7 天，之后仅留下防止重新同步的标记。'];
   return cabinetOriginalPageInfo();
 };
 
 nav=function(){
   const c=counts();
-  const noteArticles=new Set(cabinetAnnotations.map(item=>item.articleId)).size;
+  const activeArticleIds=new Set(state.articles.map(item=>item.id));
+  const noteArticles=new Set(cabinetAnnotations.filter(item=>activeArticleIds.has(item.articleId)).map(item=>item.articleId)).size;
   const main=[['today','⌂','奏章呈送',c.today],['inbox','▣','批红定案',c.inbox],['continue','▶','继续阅读',c.cont],['saved','★','收藏',c.saved],['notes','✎','札记',noteArticles]];
   const catsNav=Object.entries(cats).filter(([key])=>key!=='OTHER').map(([key,value])=>['cat:'+key,categoryIcons[key],value,'']);
   const tiers=[['tier:A','A','核心来源',''],['tier:B','B','一般来源',''],['tier:C','C','低优先级','']];
   const group=(label,items)=>`<div class="nav-group">${label?`<div class="nav-label">${label}</div>`:''}${items.map(([value,icon,text,count])=>`<button class="nav-btn ${state.view===value?'active':''}" data-view="${value}" onclick="setView('${value}')"><span class="nav-icon ${icon.length===1?'tier-letter':''}">${icon}</span><span>${text}</span>${count!==''?`<span class="nav-count">${count}</span>`:''}</button>`).join('')}</div>`;
-  $('#nav').innerHTML=group('',main)+group('信息类型',catsNav)+group('来源等级',tiers)+group('管理',[['sources','◉','信息源',''],['settings','⚙','设置','']]);
+  $('#nav').innerHTML=group('',main)+group('信息类型',catsNav)+group('来源等级',tiers)+group('管理',[['sources','◉','信息源',''],['trash','♲','回收站',''],['settings','⚙','设置','']]);
 };
 
 function cabinetArticleContentState(articleId){return cabinetContentStatus[articleId]?.status||'pending'}
@@ -68,13 +70,11 @@ function cabinetUpdateArticleStatusDom(articleId){
   document.querySelectorAll(`[data-content-status="${selector}"]`).forEach(node=>{node.textContent=label;node.className=`article-content-status ${status}`});
   document.querySelectorAll(`[data-article-card="${selector}"]`).forEach(card=>{
     card.classList.toggle('content-failed',status==='failed');const article=state.articles.find(item=>item.id===articleId);if(!article)return;
-    const heading=card.querySelector('h2'),row=card.querySelector('.row-actions'),oldAction=row?.querySelector('[data-open],.article-original-action');
+    const heading=card.querySelector('h2');
     if(status==='failed'){
       if(heading&&!heading.querySelector('.article-original-link')){heading.removeAttribute('data-open');heading.onclick=null;heading.innerHTML=`<a class="article-original-link" href="${cabinetEscape(article.url)}" target="_blank" rel="noopener">${cabinetEscape(article.title)}</a>`}
-      if(oldAction&&!oldAction.classList.contains('article-original-action')){const link=document.createElement('a');link.className='mini article-original-action';link.href=article.url;link.target='_blank';link.rel='noopener';link.ariaLabel='跳转原文';link.textContent='↗';oldAction.replaceWith(link)}
     }else{
       if(heading?.querySelector('.article-original-link')){heading.textContent=article.title;heading.dataset.open=articleId;heading.onclick=()=>openReader(articleId)}
-      if(oldAction?.classList.contains('article-original-action')){const button=document.createElement('button');button.className='mini';button.dataset.open=articleId;button.ariaLabel='打开阅读器';button.textContent='⋯';button.onclick=()=>openReader(articleId);oldAction.replaceWith(button)}
     }
   });
 }
@@ -86,14 +86,14 @@ function cabinetSetArticleContentState(articleId,status,error=''){
 articleCard=function(article,index){
   const source=src(article.source),cover=coverSrc(article.cover,true),notes=cabinetArticleNotes(article.id),contentState=cabinetArticleContentState(article.id);
   const approved=articleInInbox(article);
-  const rank=state.view==='today'
+  const defaultRank=state.view==='today'
     ?`<div class="rank ${source?.tier==='A'?'a':''}"><button class="today-inbox-check ${approved?'checked':''}" data-approve="${article.id}" aria-label="${approved?'已在批红定案':'选入批红定案'}">${approved?'✓':''}</button></div>`
     :`<div class="rank ${source?.tier==='A'?'a':''}">${String(index+1).padStart(2,'0')}</div>`;
+  const rank=typeof cabinetCleanupRank==='function'?cabinetCleanupRank(article,source,defaultRank):defaultRank;
   const noteBadge=notes.length?`<span class="article-note-badge">${notes.length} 条札记</span>`:'';
   const latest=state.view==='saved'&&notes.length?`<div class="note-text">最近札记：${cabinetEscape(notes[0].quote.slice(0,90))}${notes[0].quote.length>90?'…':''}</div>`:'';
   const title=contentState==='failed'?`<h2><a class="article-original-link" href="${cabinetEscape(article.url)}" target="_blank" rel="noopener">${article.title}</a></h2>`:`<h2 data-open="${article.id}">${article.title}</h2>`;
-  const openAction=contentState==='failed'?`<a class="mini article-original-action" href="${cabinetEscape(article.url)}" target="_blank" rel="noopener" aria-label="跳转原文">↗</a>`:`<button class="mini" data-open="${article.id}" aria-label="打开阅读器">⋯</button>`;
-  return `<article class="article ${article.read?'read':''} ${cover?'has-cover':''} ${contentState==='failed'?'content-failed':''}" data-article-card="${article.id}">${rank}<div><div class="article-source"><span>${source?.name||'未知来源'}</span><span>·</span><span class="tier ${source?.tier}">${source?.tier}</span><span>·</span><span>${cats[source?.category]||'其他'}</span>${!source?.inbox?'<span title="不进入 Inbox">静默源</span>':''}</div>${title}<p class="summary">${article.summary}</p>${latest}<div class="meta-row">${(article.tags||[]).map(tag=>`<span class="tag">#${tag}</span>`).join('')}<span class="tag">${article.mins} 分钟</span><span class="article-content-status ${contentState}" data-content-status="${article.id}">${cabinetArticleContentLabel(article.id)}</span>${noteBadge}</div></div>${cover?`<img class="article-cover" src="${cover}" alt="${article.title} 封面" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('.article').classList.remove('has-cover');this.remove()">`:''}<div class="article-side"><span>${formatPublishedAt(article)}</span><div class="row-actions"><button class="mini ${article.saved?'saved':''}" data-save="${article.id}" aria-label="收藏">${article.saved?'★':'☆'}</button><button class="mini" data-read="${article.id}" aria-label="${article.read?'标记未读':'标记已读'}">${article.read?'◌':'✓'}</button>${openAction}</div>${article.progress>0&&article.progress<1?`<div><span>${Math.round(article.progress*100)}%</span><div class="progress"><i style="width:${article.progress*100}%"></i></div></div>`:''}</div></article>`;
+  return `<article class="article ${article.read?'read':''} ${cover?'has-cover':''} ${contentState==='failed'?'content-failed':''}" data-article-card="${article.id}">${rank}<div><div class="article-source"><span>${source?.name||'未知来源'}</span><span>·</span><span class="tier ${source?.tier}">${source?.tier}</span><span>·</span><span>${cats[source?.category]||'其他'}</span>${!source?.inbox?'<span title="不进入 Inbox">静默源</span>':''}</div>${title}<p class="summary">${article.summary}</p>${latest}<div class="meta-row">${(article.tags||[]).map(tag=>`<span class="tag">#${tag}</span>`).join('')}<span class="tag">${article.mins} 分钟</span><span class="article-content-status ${contentState}" data-content-status="${article.id}">${cabinetArticleContentLabel(article.id)}</span>${noteBadge}</div></div>${cover?`<img class="article-cover" src="${cover}" alt="${article.title} 封面" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('.article').classList.remove('has-cover');this.remove()">`:''}<div class="article-side"><span>${formatPublishedAt(article)}</span><div class="row-actions"><button class="mini ${article.saved?'saved':''}" data-save="${article.id}" aria-label="收藏">${article.saved?'★':'☆'}</button><button class="mini" data-read="${article.id}" aria-label="${article.read?'标记未读':'标记已读'}">${article.read?'◌':'✓'}</button><button class="mini article-trash-action" data-trash-one="${article.id}" aria-label="移入回收站" title="移入回收站">♲</button></div>${article.progress>0&&article.progress<1?`<div><span>${Math.round(article.progress*100)}%</span><div class="progress"><i style="width:${article.progress*100}%"></i></div></div>`:''}</div></article>`;
 };
 
 function cabinetNotesPage(){
@@ -154,15 +154,16 @@ window.cabinetStartBulkPrefetch=cabinetStartBulkPrefetch;
 
 render=function(){
   nav();
-  $('#content').innerHTML=state.view==='sources'?sourcesPage():state.view==='settings'?settingsPage():state.view==='notes'?cabinetNotesPage():listPage();
+  $('#content').innerHTML=state.view==='sources'?sourcesPage():state.view==='settings'?settingsPage():state.view==='notes'?cabinetNotesPage():state.view==='trash'&&typeof cabinetTrashPage==='function'?cabinetTrashPage():listPage();
   wire();
   const bulkButton=$('#bulkPrefetch');if(bulkButton)bulkButton.onclick=cabinetStartBulkPrefetch;cabinetUpdateBatchButton();
   document.querySelectorAll('[data-note-open]').forEach(button=>button.onclick=()=>openReader(button.dataset.articleId,button.dataset.noteOpen));
   document.querySelectorAll('[data-note-article]').forEach(button=>button.onclick=()=>openReader(button.dataset.noteArticle));
+  if(typeof cabinetWireCleanup==='function')cabinetWireCleanup();
 };
 
 function cabinetReaderHeader(article,source){
-  return `<div class="reader-progress" id="readerProgress" style="width:${(article.progress||0)*100}%"></div><div class="reader-head"><div class="reader-top"><span class="tier ${source.tier}">${source.tier} 级</span><span>${cabinetEscape(source.name)}</span><button class="icon-btn close" id="closeReader" aria-label="关闭阅读器">×</button></div><h1>${cabinetEscape(article.title)}</h1><div class="reader-byline">${cabinetEscape(article.author)}　·　${formatPublishedAt(article)}　·　预计 ${article.mins} 分钟</div><div class="reader-actions"><button class="action-btn ${article.saved?'primary':''}" id="readerSave">${article.saved?'★ 已收藏':'☆ 收藏'}</button><button class="action-btn" id="readerRead">${article.read?'标记未读':'标记已读'}</button><a class="action-btn" href="${cabinetEscape(article.url)}" target="_blank" rel="noopener">查看微信原文</a></div></div>`;
+  return `<div class="reader-progress" id="readerProgress" style="width:${(article.progress||0)*100}%"></div><div class="reader-head"><div class="reader-top"><span class="tier ${source.tier}">${source.tier} 级</span><span>${cabinetEscape(source.name)}</span><button class="icon-btn close" id="closeReader" aria-label="关闭阅读器">×</button></div><h1>${cabinetEscape(article.title)}</h1><div class="reader-byline">${cabinetEscape(article.author)}　·　${formatPublishedAt(article)}　·　预计 ${article.mins} 分钟</div><div class="reader-actions"><button class="action-btn ${article.saved?'primary':''}" id="readerSave">${article.saved?'★ 已收藏':'☆ 收藏'}</button><button class="action-btn" id="readerRead">${article.read?'标记未读':'标记已读'}</button><a class="action-btn" href="${cabinetEscape(article.url)}" target="_blank" rel="noopener">查看微信原文</a><button class="action-btn reader-trash-action" id="readerDelete">移入回收站</button></div></div>`;
 }
 
 function cabinetSanitizeArticleHtml(raw){
@@ -244,6 +245,7 @@ function cabinetBindReader(article,source,jumpAnnotationId){
   $('#closeReader').onclick=closeReader;
   $('#readerSave').onclick=()=>{article.saved=!article.saved;persist();openReader(article.id,jumpAnnotationId);toast(article.saved?'已加入收藏':'已取消收藏')};
   $('#readerRead').onclick=()=>{article.read=!article.read;persist();openReader(article.id,jumpAnnotationId);toast(article.read?'已标为已读':'已标为未读')};
+  $('#readerDelete').onclick=()=>typeof cabinetTrashFromReader==='function'&&cabinetTrashFromReader(article.id);
   const body=$('#readerBody');
   if(body){
     body.oncontextmenu=event=>cabinetHandleSelection(event,article.id);

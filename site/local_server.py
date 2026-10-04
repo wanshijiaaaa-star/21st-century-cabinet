@@ -36,6 +36,7 @@ COLLECTOR_ROOT = ROOT.parent / "we-mp-rss"
 COLLECTOR_DATA = COLLECTOR_ROOT / "data"
 COLLECTOR_VENV_PYTHON = Path(os.environ.get("LOCALAPPDATA", "")) / "CenturyCabinet" / "we-rss-venv" / "Scripts" / "python.exe"
 RETENTION_DAYS = 90
+TRASH_RETENTION_DAYS = 7
 SYNC_INTERVALS = {"A": 12 * 3600, "B": 24 * 3600, "C": 72 * 3600}
 MAX_FEED_BYTES = 8 * 1024 * 1024
 MAX_ARTICLE_BYTES = 4 * 1024 * 1024
@@ -201,6 +202,23 @@ class CabinetStore:
                 "CREATE INDEX IF NOT EXISTS idx_annotations_article_updated ON annotations(article_id, updated_at DESC)"
             )
             db.execute(
+                """
+                CREATE TABLE IF NOT EXISTS deleted_articles (
+                    article_id TEXT PRIMARY KEY,
+                    source_id TEXT NOT NULL DEFAULT '',
+                    url TEXT NOT NULL DEFAULT '',
+                    title TEXT NOT NULL DEFAULT '',
+                    article_json TEXT,
+                    deleted_at TEXT NOT NULL,
+                    purge_after TEXT NOT NULL
+                )
+                """
+            )
+            db.execute("CREATE INDEX IF NOT EXISTS idx_deleted_articles_url ON deleted_articles(url)")
+            db.execute(
+                "CREATE INDEX IF NOT EXISTS idx_deleted_articles_source_title ON deleted_articles(source_id, title)"
+            )
+            db.execute(
                 "UPDATE article_content SET status='failed', error='上次调阅已中断' WHERE status='loading'"
             )
             db.execute("PRAGMA optimize")
@@ -261,18 +279,194 @@ class CabinetStore:
         return state
 
     def save(self, state: dict) -> None:
-        safe_state = {
-            "sources": state.get("sources", []),
-            "articles": state.get("articles", []),
-        }
-        payload = json.dumps(safe_state, ensure_ascii=False, separators=(",", ":"))
         with self.lock, self.connect() as db:
+            deleted_ids, deleted_urls, deleted_keys = self._deleted_fingerprints(db)
+            articles = [
+                article for article in state.get("articles", [])
+                if not self._is_deleted_article(article, deleted_ids, deleted_urls, deleted_keys)
+            ]
+            safe_state = {"sources": state.get("sources", []), "articles": articles}
+            self._update_source_counts(safe_state)
+            payload = json.dumps(safe_state, ensure_ascii=False, separators=(",", ":"))
             db.execute(
                 "INSERT INTO kv(key,value) VALUES('state',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                 (payload,),
             )
             db.commit()
         self.backup_once_daily()
+
+    @staticmethod
+    def _deleted_fingerprints(db: sqlite3.Connection) -> tuple[set[str], set[str], set[tuple[str, str]]]:
+        rows = db.execute("SELECT article_id, source_id, url, title FROM deleted_articles").fetchall()
+        return (
+            {str(row[0]) for row in rows if row[0]},
+            {str(row[2]) for row in rows if row[2]},
+            {(str(row[1]), str(row[3])) for row in rows if row[1] and row[3]},
+        )
+
+    @staticmethod
+    def _is_deleted_article(
+        article: dict,
+        deleted_ids: set[str],
+        deleted_urls: set[str],
+        deleted_keys: set[tuple[str, str]],
+    ) -> bool:
+        article_id = str(article.get("id") or "")
+        url = str(article.get("url") or "")
+        key = (str(article.get("source") or ""), str(article.get("title") or ""))
+        return article_id in deleted_ids or bool(url and url in deleted_urls) or key in deleted_keys
+
+    @staticmethod
+    def _update_source_counts(state: dict) -> None:
+        for source in state.get("sources", []):
+            articles = [article for article in state.get("articles", []) if article.get("source") == source.get("id")]
+            source["articles"] = len(articles)
+            source["unread"] = sum(not article.get("read") for article in articles)
+
+    def prune_trash(self) -> int:
+        current = now_iso()
+        with self.lock, self.connect() as db:
+            expired = [
+                row[0] for row in db.execute(
+                    "SELECT article_id FROM deleted_articles WHERE article_json IS NOT NULL AND purge_after<=?",
+                    (current,),
+                ).fetchall()
+            ]
+            if not expired:
+                return 0
+            db.executemany("UPDATE deleted_articles SET article_json=NULL WHERE article_id=?", [(item,) for item in expired])
+            db.executemany("DELETE FROM article_content WHERE article_id=?", [(item,) for item in expired])
+            db.executemany("DELETE FROM annotations WHERE article_id=?", [(item,) for item in expired])
+            db.commit()
+            return len(expired)
+
+    def list_trash(self) -> list[dict]:
+        self.prune_trash()
+        with self.lock, self.connect() as db:
+            rows = db.execute(
+                "SELECT article_id, article_json, deleted_at, purge_after FROM deleted_articles "
+                "WHERE article_json IS NOT NULL ORDER BY deleted_at DESC"
+            ).fetchall()
+        items = []
+        for article_id, article_json, deleted_at, purge_after in rows:
+            try:
+                article = json.loads(article_json)
+            except (TypeError, json.JSONDecodeError):
+                continue
+            items.append({
+                "articleId": article_id,
+                "article": article,
+                "deletedAt": deleted_at,
+                "purgeAfter": purge_after,
+            })
+        return items
+
+    def trash_articles(self, article_ids: list[str]) -> dict:
+        requested = {str(item).strip() for item in article_ids if str(item).strip()}
+        if not requested:
+            raise ValueError("请选择至少一篇文章")
+        deleted_at = datetime.now(timezone.utc)
+        purge_after = deleted_at + timedelta(days=TRASH_RETENTION_DAYS)
+        trashed = []
+        with self.lock, self.connect() as db:
+            row = db.execute("SELECT value FROM kv WHERE key='state'").fetchone()
+            state = json.loads(row[0]) if row else {"sources": [], "articles": []}
+            kept = []
+            for article in state.get("articles", []):
+                article_id = str(article.get("id") or "")
+                if article_id not in requested:
+                    kept.append(article)
+                    continue
+                db.execute(
+                    """
+                    INSERT INTO deleted_articles(
+                        article_id, source_id, url, title, article_json, deleted_at, purge_after
+                    ) VALUES(?,?,?,?,?,?,?)
+                    ON CONFLICT(article_id) DO UPDATE SET
+                        source_id=excluded.source_id,
+                        url=excluded.url,
+                        title=excluded.title,
+                        article_json=excluded.article_json,
+                        deleted_at=excluded.deleted_at,
+                        purge_after=excluded.purge_after
+                    """,
+                    (
+                        article_id,
+                        str(article.get("source") or ""),
+                        str(article.get("url") or ""),
+                        str(article.get("title") or ""),
+                        json.dumps(article, ensure_ascii=False, separators=(",", ":")),
+                        deleted_at.isoformat(),
+                        purge_after.isoformat(),
+                    ),
+                )
+                trashed.append(article_id)
+            state["articles"] = kept
+            self._update_source_counts(state)
+            payload = json.dumps(state, ensure_ascii=False, separators=(",", ":"))
+            db.execute(
+                "INSERT INTO kv(key,value) VALUES('state',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (payload,),
+            )
+            db.commit()
+        self.backup_once_daily()
+        return {"trashed": trashed, "trash": self.list_trash()}
+
+    def restore_trash(self, article_ids: list[str]) -> dict:
+        requested = {str(item).strip() for item in article_ids if str(item).strip()}
+        if not requested:
+            raise ValueError("请选择至少一篇文章")
+        self.prune_trash()
+        restored = []
+        with self.lock, self.connect() as db:
+            row = db.execute("SELECT value FROM kv WHERE key='state'").fetchone()
+            state = json.loads(row[0]) if row else {"sources": [], "articles": []}
+            existing_ids = {str(article.get("id") or "") for article in state.get("articles", [])}
+            for article_id in requested:
+                trash_row = db.execute(
+                    "SELECT article_json FROM deleted_articles WHERE article_id=? AND article_json IS NOT NULL",
+                    (article_id,),
+                ).fetchone()
+                if not trash_row:
+                    continue
+                try:
+                    article = json.loads(trash_row[0])
+                except (TypeError, json.JSONDecodeError):
+                    continue
+                if article_id not in existing_ids:
+                    state.setdefault("articles", []).append(article)
+                    existing_ids.add(article_id)
+                db.execute("DELETE FROM deleted_articles WHERE article_id=?", (article_id,))
+                restored.append(article_id)
+            self._update_source_counts(state)
+            payload = json.dumps(state, ensure_ascii=False, separators=(",", ":"))
+            db.execute(
+                "INSERT INTO kv(key,value) VALUES('state',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (payload,),
+            )
+            db.commit()
+        self.backup_once_daily()
+        return {"restored": restored, "trash": self.list_trash()}
+
+    def purge_trash(self, article_ids: list[str] | None = None) -> dict:
+        requested = {str(item).strip() for item in (article_ids or []) if str(item).strip()}
+        with self.lock, self.connect() as db:
+            if requested:
+                targets = [
+                    row[0] for row in db.execute(
+                        f"SELECT article_id FROM deleted_articles WHERE article_json IS NOT NULL AND article_id IN ({','.join('?' for _ in requested)})",
+                        tuple(requested),
+                    ).fetchall()
+                ]
+            else:
+                targets = [row[0] for row in db.execute(
+                    "SELECT article_id FROM deleted_articles WHERE article_json IS NOT NULL"
+                ).fetchall()]
+            db.executemany("UPDATE deleted_articles SET article_json=NULL WHERE article_id=?", [(item,) for item in targets])
+            db.executemany("DELETE FROM article_content WHERE article_id=?", [(item,) for item in targets])
+            db.executemany("DELETE FROM annotations WHERE article_id=?", [(item,) for item in targets])
+            db.commit()
+        return {"purged": targets, "trash": self.list_trash()}
 
     def backup_once_daily(self) -> None:
         if not DB_PATH.exists():
@@ -706,6 +900,8 @@ class CabinetStore:
             by_source = {source["id"]: source for source in state["sources"]}
             existing_by_url = {article.get("url"): article for article in state["articles"] if article.get("url")}
             existing_by_key = {(article.get("source"), article.get("title")): article for article in state["articles"]}
+            with self.connect() as db:
+                deleted_ids, deleted_urls, deleted_keys = self._deleted_fingerprints(db)
             for source_id, entries, error in results:
                 source = by_source.get(source_id)
                 if not source:
@@ -720,6 +916,9 @@ class CabinetStore:
                 source["last"] = "刚刚"
                 for entry in entries:
                     key = (source_id, entry["title"])
+                    entry["source"] = source_id
+                    if self._is_deleted_article(entry, deleted_ids, deleted_urls, deleted_keys):
+                        continue
                     existing = existing_by_url.get(entry.get("url")) or existing_by_key.get(key)
                     if existing:
                         # Refresh source metadata while preserving read/saved/progress state.
@@ -728,7 +927,6 @@ class CabinetStore:
                                 existing[field] = entry[field]
                         existing.pop("hours", None)
                         continue
-                    entry["source"] = source_id
                     state["articles"].append(entry)
                     if entry.get("url"):
                         existing_by_url[entry["url"]] = entry
@@ -863,6 +1061,9 @@ class CabinetHandler(SimpleHTTPRequestHandler):
             article_id = (parse_qs(parsed.query).get("articleId") or [""])[0].strip() or None
             self.send_json({"ok": True, "annotations": STORE.list_annotations(article_id)})
             return
+        if path == "/api/trash":
+            self.send_json({"ok": True, "trash": STORE.list_trash(), "retentionDays": TRASH_RETENTION_DAYS})
+            return
         if path == "/api/state":
             state = STORE.load()
             self.send_json({**state, "configured": STORE.configured(), "retentionDays": RETENTION_DAYS})
@@ -912,6 +1113,24 @@ class CabinetHandler(SimpleHTTPRequestHandler):
                     raise ValueError("state 格式不正确")
                 STORE.save(body)
                 self.send_json({"ok": True})
+                return
+            if path == "/api/articles/trash":
+                article_ids = body.get("articleIds", [])
+                if not isinstance(article_ids, list):
+                    raise ValueError("articleIds 必须是数组")
+                self.send_json({"ok": True, **STORE.trash_articles(article_ids)})
+                return
+            if path == "/api/trash/restore":
+                article_ids = body.get("articleIds", [])
+                if not isinstance(article_ids, list):
+                    raise ValueError("articleIds 必须是数组")
+                self.send_json({"ok": True, **STORE.restore_trash(article_ids)})
+                return
+            if path == "/api/trash/purge":
+                article_ids = body.get("articleIds")
+                if article_ids is not None and not isinstance(article_ids, list):
+                    raise ValueError("articleIds 必须是数组")
+                self.send_json({"ok": True, **STORE.purge_trash(article_ids)})
                 return
             if path == "/api/import-sources":
                 rows = body.get("sources", [])
