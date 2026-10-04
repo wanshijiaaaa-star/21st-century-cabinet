@@ -1,0 +1,78 @@
+{% include "includes/header.html" %}
+{% include "includes/article_detail_styles.html" %}
+<!-- 文章头部信息 -->
+<div class="article-header">
+    <h1 style="margin-bottom: 1rem;font-weight: bold;font-size: 1.2rem;">{{article.title}}</h1>
+    <div class="article-meta">
+        <div>
+            <span style="margin-right: 1rem;">发布时间: {{article.publish_time}}</span>
+            <span style="margin-right: 1rem;">创建时间: {{article.created_at}}</span>
+            <span style="margin-right: 1rem;">{{article.show_type_name}}</span>
+            <a href="{{article.url}}" target="_blank"  rel="noopener noreferrer">
+                🔗 原文链接
+            </a>
+             <a href="/views/print/{{article.id}}" target="_blank"  rel="noopener noreferrer">
+                🖨️ 打印
+            </a>
+        </div>
+    </div>
+
+  
+   
+    
+    {% if article.description %}
+    <div style="background: #f8f9fa;margin-top: 1rem; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;">
+        <strong>摘要：</strong> {{article.description}}
+    </div>
+    {% endif %}
+
+    {% if article.pic_url %}
+    <div style="margin-bottom: 1.5rem; text-align: center;">
+        <img src="{{article.pic_url}}" alt="{{article.title}}" style="aspect-ratio:16/9; width: 90%;object-fit: cover;object-position: center;  border-radius: 8px;"/>
+    </div>
+    {% endif %}
+    
+  
+    <!-- 公众号信息 -->
+    <div class="mp-info">
+        <div style="width: 48px; height: 48px; background: #e9ecef; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
+                <img src="{{article.mp_cover or '/static/logo.svg'}}" alt="{{article.title}}" width="50px"/> 
+        </div>
+        <div style="flex: 1;">
+            <div style="font-weight: 500; font-size: 1.1rem;">
+                  <a href="/views/articles?mp_id={{article.mp_id}}" target="_blank"  style="font-size: 0.9rem;">{{article.mp_name}}</a>
+            </div>
+          
+            {% if article.mp_intro %}
+            <div class="text-muted" style="font-size: 0.9rem;">{{article.mp_intro}}</div>
+            {% endif %}
+        </div>
+       
+    </div>
+</div>
+
+<!-- 文章内容 -->
+<div class="article-content" style="clear: both;">
+        <p class="text-muted mt-2"> {{article.content}}</p>
+</div>
+
+<div class="article-box">
+ <!-- 相关文章 -->
+    <div class="more-info">
+        {%for related_article in related_articles %}
+        <p><a href="/views/article/{{related_article.id}}" target="_blank"  style="font-size: 0.9rem;">{{related_article.title}}</a></p>
+        {% endfor %}
+    </div>
+
+      <div class="nav-article" style="text-align: justify; margin-top:2rem;border-top:1px solid #e9ecef;padding-top:1rem;">
+        {% if prev_article %}
+        <p>
+            <a href="/views/article/{{prev_article.id}}"   style="font-size: 0.9rem;">上一篇: {{prev_article.title}}</a>
+        </p>
+        {% endif %}
+        {% if next_article %}
+        <p><a href="/views/article/{{next_article.id}}"  style="font-size: 0.9rem;">下一篇: {{next_article.title}}</a></p>
+        {% endif %}
+    </div>
+</div>
+{% include "includes/footer.html" %}

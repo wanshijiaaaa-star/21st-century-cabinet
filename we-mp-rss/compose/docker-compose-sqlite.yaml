@@ -1,0 +1,22 @@
+version: '3.9'
+services:
+  we-mp-rss:
+    image: ghcr.io/rachelos/we-mp-rss:latest
+    container_name: we-mp-rss
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      - DB=sqlite:///data/we_mp_rss.db
+      - USERNAME=admin
+      - PASSWORD=admin@123
+    volumes:
+      - ./data:/app/data
+
+volumes:
+  db_data:
+
+networks:
+  we-mp-rss:
+
+

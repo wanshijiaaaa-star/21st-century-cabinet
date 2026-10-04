@@ -1,0 +1,132 @@
+{% if total_items > 1 %}
+<!-- 桌面端分页 -->
+<div class="pagination-container desktop-pagination">
+    <div class="pagination-wrapper">
+        {% if has_prev %}
+        <a href="{{prev_url}}" class="btn btn-secondary">« 上一页</a>
+        {% endif %}
+
+        <div class="pagination-info">
+            <span>第 {{current_page}} 页</span>
+            <span class="pagination-total">共 {{total_pages}} 页</span>
+            <span class="pagination-items">{{total_items}} {{item_name}}</span>
+        </div>
+
+        {% if has_next %}
+        <a href="{{next_url}}" class="btn btn-secondary">下一页 »</a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 移动端加载更多 -->
+<div class="mobile-load-more" id="loadMoreContainer">
+    <div class="load-more-info">
+        <span>已加载 <span id="loadedCount">{{current_page}}</span>/{{total_pages}} 页</span>
+    </div>
+    {% if has_next %}
+    <button class="btn btn-load-more" id="loadMoreBtn" data-next-url="{{next_url}}" data-current-page="{{current_page}}" data-total-pages="{{total_pages}}">
+        <span class="load-text">加载更多</span>
+        <span class="loading-text" style="display:none;">加载中...</span>
+    </button>
+    {% endif %}
+</div>
+
+<style>
+.pagination-container { margin: 2rem 0; }
+.pagination-wrapper { 
+    display: flex; 
+    justify-content: center; 
+    align-items: center; 
+    gap: 1rem; 
+    flex-wrap: wrap; 
+    padding: 0 1rem;
+}
+.pagination-info { 
+    display: flex;
+    flex-direction: row; 
+    align-items: center; 
+    gap: 0.75rem; 
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+.pagination-total, .pagination-items { font-size: 0.85rem; }
+.pagination-info span:not(:last-child)::after {
+    content: "|";
+    margin-left: 0.75rem;
+    color: var(--text-muted);
+    opacity: 0.4;
+}
+
+/* 移动端加载更多样式 */
+.mobile-load-more {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1.5rem 0;
+    padding: 0 1rem;
+}
+.load-more-info {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+.btn-load-more {
+    width: 100%;
+    max-width: 100px;
+    padding: 0.5rem 1rem;
+    background: var(--btn-bg);
+    color: white;
+    border: none;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.btn-load-more:hover {
+    background: var(--btn-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px var(--shadow-color);
+}
+.btn-load-more:disabled {
+    background: var(--text-muted);
+    cursor: not-allowed;
+    transform: none;
+}
+
+@media (max-width: 768px) {
+    .desktop-pagination { display: none; }
+    .mobile-load-more { display: flex; }
+    .pagination-wrapper { gap: 0.75rem; padding: 0 0.5rem; }
+    .pagination-info { font-size: 0.8rem; display: none; }
+    .btn { flex: 1; min-width: 100px; text-align: center; font-size: 0.9rem; }
+}
+
+@media (min-width: 769px) {
+    .mobile-load-more { display: none; }
+}
+</style>
+
+<script>
+(function() {
+    var loadMoreBtn = document.getElementById('loadMoreBtn');
+    if (!loadMoreBtn) return;
+    
+    var nextPageUrl = loadMoreBtn.getAttribute('data-next-url');
+    
+    // 点击加载更多
+    loadMoreBtn.addEventListener('click', function() {
+        if (!nextPageUrl) return;
+        
+        var loadText = loadMoreBtn.querySelector('.load-text');
+        var loadingText = loadMoreBtn.querySelector('.loading-text');
+        
+        loadText.style.display = 'none';
+        loadingText.style.display = 'inline';
+        loadMoreBtn.disabled = true;
+        
+        // 跳转到下一页
+        window.location.href = nextPageUrl;
+    });
+})();
+</script>
+{% endif %}

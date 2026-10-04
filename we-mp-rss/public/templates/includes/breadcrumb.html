@@ -1,0 +1,13 @@
+{% if len(breadcrumb)>0 %}
+            <div class="breadcrumb" style="margin-bottom: 1rem;font-size:1rem;font-weight: bold;">
+                <a href="/views/home" class="breadcrumb-item" style="color: #000; text-decoration: none;transition: color 0.3s;">
+                               首页/
+                </a>
+                    {% for item in breadcrumb %}
+                    <span  style="color: #363434;text-decoration: none;transition: color 0.3s; " >{{ item.name }}</span>
+                        {% if not loop.last %}
+                        /
+                        {% endif %}
+                    {% endfor %}
+            </div>
+{% endif %}

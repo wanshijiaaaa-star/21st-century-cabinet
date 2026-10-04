@@ -1,0 +1,11 @@
+<title>
+    {% if len(breadcrumb)>0 %}
+                    {% for item in breadcrumb %}
+                    {{ item.name }}
+                        {% if not loop.last %}
+                        -
+                        {% endif %}
+                    {% endfor %}
+{% endif %}
+{{site.name}}
+</title>

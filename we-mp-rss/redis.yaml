@@ -1,0 +1,15 @@
+redis:
+  # url: ${REDIS_URL:-redis://:123456@127.0.0.1:6379/0}
+   #内置 Redis 服务端配置 (当使用 tools/redis_server.py 启动时)
+  server:
+    enabled: ${REDIS_SERVER_ENABLED:-True}
+    #监听地址
+    host: ${REDIS_SERVER_HOST:-0.0.0.0}
+    #监听端口
+    port: ${REDIS_SERVER_PORT:-6379}
+    #最大内存 (MB)
+    max_memory: ${REDIS_SERVER_MAX_MEMORY:-128}
+    #认证密码 (为空则不需要认证)
+    password: ${REDIS_SERVER_PASSWORD:-}
+    #是否启用持久化
+    persistence: ${REDIS_SERVER_PERSISTENCE:-true}

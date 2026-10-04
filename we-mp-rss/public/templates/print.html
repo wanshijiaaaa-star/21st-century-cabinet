@@ -1,0 +1,347 @@
+{% include "includes/header_simple.html" %}
+<style>
+    /* Word文档风格样式 */
+    body {
+        background: #fff;
+        font-family: "Microsoft YaHei", "微软雅黑", Arial, sans-serif;
+        line-height: 1.8;
+        padding: 20px 0;
+    }
+
+    .word-document {
+        max-width: 816px; /* A4纸张宽度 */
+        width:677px;
+        margin: 0 auto;
+        background: white;
+        padding: 72px 90px; /* Word默认页边距 */
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        min-height: calc(100vh - 40px);
+    }
+
+    .article-header {
+        border-bottom: 2px solid #1a1a1a;
+        padding-bottom: 20px;
+        margin-bottom: 30px;
+    }
+
+    .article-header h1 {
+        font-size: 22pt;
+        font-weight: bold;
+        color: #1a1a1a;
+        margin: 0 0 15px 0;
+        text-align: center;
+        line-height: 1.4;
+    }
+
+    .article-meta {
+        font-size: 10pt;
+        color: #666;
+        text-align: center;
+        margin-bottom: 15px;
+    }
+
+    .article-meta span {
+        margin: 0 10px;
+    }
+
+    .article-summary {
+        padding: 12px 15px;
+        margin: 20px 0;
+        font-size: 11pt;
+    }
+
+    .article-summary strong {
+        color: #007bff;
+    }
+
+    .article-image {
+        text-align: center;
+        margin: 25px 0;
+    }
+
+    .article-image img {
+        max-width: 100%;
+        height: auto;
+        border: 1px solid #e0e0e0;
+    }
+
+    .mp-info {
+        display: flex;
+        align-items: center;
+        padding: 15px;
+        margin: 20px 0;
+        font-size: 10pt;
+    }
+
+    .mp-info img {
+        width: 48px;
+        height: 48px;
+        border-radius: 4px;
+        margin-right: 15px;
+    }
+
+    .mp-info a {
+        color: #1a1a1a;
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .mp-info a:hover {
+        color: #007bff;
+    }
+
+    .article-content {
+        font-size: 12pt;
+        color: #1a1a1a;
+        text-align: justify;
+        word-wrap: break-word;
+        position: relative;
+    }
+
+    .article-content p {
+        margin: 0 0 12pt 0;
+        text-indent: 2em; /* 首行缩进 */
+    }
+
+    .article-content img {
+        max-width: 100%;
+        height: auto;
+        display: block;
+        margin: 15px auto;
+    }
+
+    /* 水印容器样式 */
+    .watermark-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 0;
+        overflow: hidden;
+    }
+
+    .watermark-item {
+        position: absolute;
+        font-size: 14pt;
+        font-weight: bold;
+        color: rgba(0, 0, 0, 0.02);
+        white-space: nowrap;
+        transform: rotate(-30deg);
+        letter-spacing: 8px;
+    }
+
+    /* 移动端适配样式 */
+    @media screen and (max-width: 768px) {
+        body {
+            padding: 10px 0;
+        }
+
+        .word-document {
+            max-width: 100%;
+            padding: 20px 15px;
+            box-shadow: none;
+            min-height: calc(100vh - 20px);
+        }
+
+        .article-header {
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .article-header h1 {
+            font-size: 18pt;
+            margin: 0 0 12px 0;
+        }
+
+        .article-meta {
+            font-size: 9pt;
+            margin-bottom: 12px;
+        }
+
+        .article-meta span {
+            display: block;
+            margin: 5px 0;
+        }
+
+        .article-summary {
+            padding: 10px 12px;
+            margin: 15px 0;
+            font-size: 10pt;
+        }
+
+        .article-image {
+            margin: 20px 0;
+        }
+
+        .mp-info {
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 12px;
+            font-size: 9pt;
+        }
+
+        .mp-info img {
+            width: 40px;
+            height: 40px;
+            margin-right: 0;
+            margin-bottom: 10px;
+        }
+
+        .article-content {
+            font-size: 11pt;
+        }
+
+        .article-content p {
+            margin: 0 0 10pt 0;
+        }
+
+        .article-content img {
+            margin: 12px auto;
+        }
+
+        .watermark-item {
+            font-size: 12pt;
+            letter-spacing: 6px;
+        }
+    }
+
+    /* 小屏幕手机适配 */
+    @media screen and (max-width: 480px) {
+        body {
+            padding: 0;
+        }
+
+        .word-document {
+            padding: 15px 10px;
+        }
+
+        .article-header h1 {
+            font-size: 16pt;
+        }
+
+        .article-meta {
+            font-size: 8pt;
+        }
+
+        .article-summary {
+            padding: 8px 10px;
+            font-size: 9pt;
+        }
+
+        .article-content {
+            font-size: 10pt;
+        }
+
+        .mp-info {
+            padding: 10px;
+            font-size: 8pt;
+        }
+
+        .mp-info img {
+            width: 36px;
+            height: 36px;
+        }
+    }
+
+    /* 打印样式 */
+    @media print {
+        body {
+            background: white;
+            padding: 0;
+        }
+        .word-document {
+            box-shadow: none;
+            max-width: 100%;
+            padding: 0;
+        }
+    }
+</style>
+
+<div class="word-document">
+    <!-- 文章头部信息 -->
+    <div class="article-header">
+        <h1>{{article.title}}</h1>
+        <div class="article-meta">
+            <span>发布时间：{{article.publish_time}}</span>
+            <span>创建时间：{{article.created_at}}</span>
+        </div>
+
+        {% if article.description %}
+        <div class="article-summary">
+            <strong>摘要：</strong>{{article.description}}
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 文章内容 -->
+    <div class="article-content" id="articleContent">
+        {{article.content}}
+    </div>
+</div>
+
+<script>
+// 生成满屏水印
+function createWatermark() {
+    const container = document.getElementById('articleContent');
+    if (!container) return;
+
+    // 创建水印容器
+    const watermarkContainer = document.createElement('div');
+    watermarkContainer.className = 'watermark-container';
+
+    // 水印文字
+    const watermarkText = 'WeRss Team';
+    
+    // 获取容器尺寸
+    const containerWidth = container.offsetWidth;
+    const containerHeight = container.offsetHeight;
+
+    // 水印间距配置
+    const gapX = 200; // 水平间距
+    const gapY = 100; // 垂直间距
+
+    // 计算需要的水印数量
+    const cols = Math.ceil(containerWidth / gapX) + 2;
+    const rows = Math.ceil(containerHeight / gapY) + 2;
+
+    // 生成水印元素
+    for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+            const watermark = document.createElement('div');
+            watermark.className = 'watermark-item';
+            watermark.textContent = watermarkText;
+            
+            // 计算位置（考虑旋转后的偏移）
+            const x = col * gapX - 50;
+            const y = row * gapY - 50;
+            
+            watermark.style.left = x + 'px';
+            watermark.style.top = y + 'px';
+            
+            watermarkContainer.appendChild(watermark);
+        }
+    }
+
+    // 插入到内容容器
+    container.insertBefore(watermarkContainer, container.firstChild);
+}
+
+// 页面加载完成后生成水印
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', createWatermark);
+} else {
+    createWatermark();
+}
+
+// 窗口大小改变时重新生成水印
+window.addEventListener('resize', function() {
+    const container = document.getElementById('articleContent');
+    const watermarkContainer = container.querySelector('.watermark-container');
+    if (watermarkContainer) {
+        watermarkContainer.remove();
+    }
+    createWatermark();
+});
+</script>

@@ -1,0 +1,31 @@
+name: Base OS Image
+on:
+  push:
+    branches:
+      - main
+    paths:  # 仅在指定文件变化时触发（可选）
+      - 'Dockerfiles/base-mini/Dockerfile'
+  workflow_dispatch:  # 支持手动触发
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        run: echo  ${{secrets.TOKEN}} | docker login ghcr.io -u  ${{github.actor}} --password-stdin
+
+      - name: Show env
+        run: cat /home/runner/.docker/config.json
+
+      - name: Build and push Docker Image
+        run: |
+          cd Dockerfiles/base-mini
+          docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/rachelos/base-mini:latest --push .

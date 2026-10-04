@@ -1,0 +1,37 @@
+{%include "includes/header.html" %}
+
+{% if tags %}
+<div class="grid grid-3">
+    {% for tag in tags %}
+    <div class="card">
+        <div style="text-align: center; margin-bottom: 1rem;">
+            {% if tag.cover %}
+            <img src="{{tag.cover}}" alt="{{tag.name}}" onerror="this.src='/static/logo.svg'"
+                style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">
+            {% endif %}
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="text-align: center;width:100%;"><a href="/views/tag/{{tag.id}}">{{tag.name}}</a></h3>
+        </div>
+        <div style="margin: 1rem 0;">
+            <span
+                style="background: #eeeff0; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.8rem; margin-right: 0.5rem;">
+                📺 {{tag.mp_count}} 个公众号
+            </span>
+            <span style="background: #eeeff0; padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.8rem;">
+                📄 {{tag.article_count}} 篇文章
+            </span>
+        </div>
+    <p class="text-muted">{{tag.intro or "暂无简介"}}</p>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: 2rem;">
+    <p class="text-muted">暂无标签</p>
+</div>
+{% endif %}
+
+{% set item_name = "个标签" %}
+{% include "includes/pagination.html" %}
+{% include "includes/footer.html" %}

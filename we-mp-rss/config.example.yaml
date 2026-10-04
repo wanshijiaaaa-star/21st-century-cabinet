@@ -1,0 +1,221 @@
+app_name: ${APP_NAME:-we-mp-rss}
+server:
+   #服务名称
+   name: ${SERVER_NAME:-we-mp-rss}
+   #前端显示名称
+   web_name: ${WEB_NAME:-WeRSS微信公众号订阅助手}
+   #过期是否发送授权二维码通知 默认False，设为True时通知中附带二维码
+   send_code: ${SEND_CODE:-False}
+   #二维通知标题
+   code_title: ${CODE_TITLE:-WeRSS}
+   #启动JOB定时任务，默认为True
+   enable_job: ${ENABLE_JOB:-True}
+   #代码修改自动重启服务，默认为False
+   auto_reload: ${AUTO_RELOAD:-False}
+   #最大线程数 默认2个线程，不建议超过4个线程
+   threads: ${THREADS:-1}
+   #通过web方式授权二维码 默认False 
+   auth_web: ${WERSS_AUTH_WEB:-False}
+   #是否发送授权二维码通知 默认False，设为True时通知中附带二维码
+   send_code: ${WERSS_SEND_CODE:-False}
+   #是否启用自动刷新文章统计 默认False
+   article_stats_refresh_enabled: ${ARTICLE_STATS_REFRESH_ENABLED:-False}
+   # 文章统计刷新间隔 默认300秒
+   article_stats_refresh_interval: ${ARTICLE_STATS_REFRESH_INTERVAL:-3600}
+
+#数据库连接 例如db:  mysql+pymysql://<username>:<password>@<host>/we-rss?charset=utf8mb4
+#PostgreSQL 连接示例: postgresql://<username>:<password>@<host>/<database>
+#需要注意数据库连接字符串的格式，如果是sqlite数据库，则使用sqlite:///路径的形式，如果是mysql数据库，
+#则使用mysql+pymysql://<username>:<password>@<host>/<database>?charset=<数据库编码>的形式
+#安全提示：生产环境请通过环境变量DB设置数据库连接字符串，不要使用默认值
+db: ${DB:-sqlite:///./data/db.db}
+#Redis 连接配置，用于缓存 Token 等数据，可选配置
+#格式: redis://[:password@]host:port/db 或 rediss://[:password@]host:port/db (SSL)
+#例如: redis://localhost:6379/0 或 redis://:password@redis.example.com:6379/1
+#留空则不使用 Redis
+#安全提示：生产环境请通过环境变量REDIS_URL设置Redis连接，不要使用默认密码
+redis:
+  url: ${REDIS_URL:-redis://127.0.0.1:6379/0}
+   #内置 Redis 服务端配置 (当使用 tools/redis_server.py 启动时)
+  server:
+    enabled: ${REDIS_SERVER_ENABLED:-True}
+    #监听地址
+    host: ${REDIS_SERVER_HOST:-0.0.0.0}
+    #监听端口
+    port: ${REDIS_SERVER_PORT:-6379}
+    #最大内存 (MB)
+    max_memory: ${REDIS_SERVER_MAX_MEMORY:-128}
+    #认证密码 (为空则不需要认证)
+    #安全提示：生产环境请通过环境变量REDIS_SERVER_PASSWORD设置强密码，不要使用默认值
+    password: ${REDIS_SERVER_PASSWORD}
+    #是否启用持久化
+    persistence: ${REDIS_SERVER_PERSISTENCE:-true}
+#通知
+notice:
+  #通知方式，可选dingding、wechat、feishu、custom
+  dingding: "${DINGDING_WEBHOOK}"
+  wechat: "${WECHAT_WEBHOOK}"
+  feishu: "${FEISHU_WEBHOOK}"
+  custom: "${CUSTOM_WEBHOOK}"
+
+#安全提示：生产环境请通过环境变量SECRET_KEY设置强随机密钥，不要使用默认值
+secret: ${SECRET_KEY}
+user_agent: ${USER_AGENT:-Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36/WeRss}
+
+#定时任务执行每篇稿件间隔时间 单位秒 默认10s 允许值 1-60秒之间
+interval: ${SPAN_INTERVAL:- 10}
+
+webhook:
+  #文章内容的发送格式(默认使用html格式，可选text、markdown)
+  content_format: ${WEBHOOK.CONTENT_FORMAT:-html}
+
+#API服务端口
+port: ${PORT:-8001}
+#调试模式
+debug: ${DEBUG:-False}
+
+
+#最大页数 第一次添加 采集的页数默认5页
+max_page: ${MAX_PAGE:-5}
+
+rss:
+  #RSS域名地址：如https://www.xxx.com/
+  base_url: ${RSS_BASE_URL:-}
+  #是否为本地RSS链接，默认True，当为False时直接出外部链接
+  local: ${RSS_LOCAL:-False}
+  #RSS标题
+  title: ${RSS_TITLE:-}
+  #RSS描述
+  description: ${RSS_DESCRIPTION:-}
+  #RSS封面
+  cover: ${RSS_COVER:-}
+  #是否显示全文 默认False
+  full_context: ${RSS_FULL_CONTEXT:-True}
+  #是否添加封面图片 默认False
+  add_cover: ${RSS_ADD_COVER:-True}
+  #RSS正文是否启用 CDATA
+  cdata: ${RSS_CDATA:-False}
+  #RSS分页大小 默认10
+  page_size: ${RSS_PAGE_SIZE:-30}
+
+#登录会话有效时长 单位分钟 默认4320分钟 3天
+token_expire_minutes: ${TOKEN_EXPIRE_MINUTES:-4320}
+
+cache:
+  #缓存目录，默认为./data/cache
+  dir: ${CACHE.DIR:-./data/cache}
+  #是否启用缓存，默认为True
+  enabled: ${CACHE.ENABLED:-True}
+  #缓存过期时间，默认为3600秒（1小时）
+  ttl: ${CACHE.TTL:-3600}
+  #视图缓存配置
+  views:
+    #是否启用视图缓存，默认为True
+    enabled: ${CACHE.VIEWS.ENABLED:-False}
+    #视图缓存目录，默认为./data/cache/views
+    dir: ${CACHE.VIEWS.DIR:-./data/cache/views}
+    #视图缓存过期时间，默认为1800秒（30分钟）
+    ttl: ${CACHE.VIEWS.TTL:-1800}
+
+article:
+  #是否真实删除文章，默认False，如果为True，则会删除数据库中的记录
+  true_delete: ${ARTICLE.TRUE_DELETE:-False}
+
+gather:
+  #是否采集内容  默认False
+  content: ${GATHER.CONTENT:-False}
+  #采集模式，web模式（可采集到发布链接)，api模式（可采集临时链接），app模式（采集最新消息）
+  #可选值: web | api | app | free_publish | playwright | weread | weread_mp | auto
+  #weread_mp 使用微信读书 Web 接口采集公众号文章，需要下方 Cookie 与 x-wr-ticket
+  model: ${GATHER.MODEL:-web}
+  #是否自动检查未采集文章内容，默认False
+  content_auto_check: ${GATHER.CONTENT_AUTO_CHECK:-True}
+  #自动检查未采集文章内容的时间间隔 单位秒默认59分钟 允许值 1-59分钟之间 默认59分钟
+  content_auto_interval: ${GATHER.CONTENT_AUTO_INTERVAL:-59}
+  #内容修正模式，默认web 允许值 web、api
+  content_mode: ${GATHER.CONTENT_MODE:-web}
+  #单篇正文抓取总超时（秒），超时会终止浏览器进程并释放文章锁
+  content_fetch_timeout: ${GATHER.CONTENT_FETCH_TIMEOUT:-60}
+  #FETCHING锁超过该时间（秒）后自动恢复；历史无时间戳锁也会恢复
+  content_fetch_stale_timeout: ${GATHER.CONTENT_FETCH_STALE_TIMEOUT:-300}
+  #每轮补抓文章数量，避免超过内容队列的总任务超时
+  content_batch_size: ${GATHER.CONTENT_BATCH_SIZE:-5}
+  #单篇正文最大失败次数
+  content_max_failures: ${GATHER.CONTENT_MAX_FAILURES:-3}
+  #首选模式失败后是否回退到另一模式；设为False可启用api-only
+  content_fallback: ${GATHER.CONTENT_FALLBACK:-True}
+  #是否清理html标签 默认True
+  clean_html: ${GATHER.CLEAN_HTML:-False}
+  #浏览器类型 默认firefox 允许值 firefox/edge/webkit
+  browser_type: ${BROWSER_TYPE:-firefox}
+
+#代理配置
+proxy:
+  #是否启用代理 默认False
+  enabled: ${PROXY_ENABLED:-False}
+  #Deno Deploy 代理地址，例如: https://your-proxy.deno.dev
+  #代理格式: {proxy_url}?url={target_url}
+  deno_url: ${PROXY_DENO_URL:-}
+  #HTTP代理地址，例如: http://127.0.0.1:7890 或 socks5://127.0.0.1:1080
+  http_url: ${PROXY_HTTP_URL:-}
+#安全配置
+safe:
+    # 需要隐藏的配置信息，用逗号分隔 如：db,secret,token等 
+    hide_config: "${SAFE_HIDE_CONFIG:-db,secret,token,weread.cookie,weread.ticket,notice.wechat,notice.feishu,notice.dingding}"
+    # 授权加密KEY
+    lic_key: "${SAFE_LIC_KEY:-RACHELOS}"
+# 微信账号配置
+wechat:
+  # 允许切换的账号ID列表，为空表示允许所有账号，用逗号分隔
+  # 例如: "account1,account2,account3" 或留空 ""
+  allowed_accounts: "${WECHAT_ALLOWED_ACCOUNTS:-}"
+
+# 微信读书配置
+weread:
+  #微信读书 Cookie (从浏览器 weread.qq.com 请求中获取)
+  #需要包含: wr_vid, wr_skey, wr_gid, wr_fp 等
+  cookie: "${WEREAD_COOKIE:-}"
+  #公众号文章列表请求凭据（从 /web/mp/articles 请求头复制）
+  ticket: "${WEREAD_TICKET:-}"
+  #用户vid (从 wr_vid Cookie 中提取)
+  vid: "${WEREAD_VID:-}"
+  #故障补抓时最多扫描的文章列表页数
+  mp_max_pages: ${WEREAD_MP_MAX_PAGES:-20}
+  #列表翻页与单篇正文请求的最小间隔（秒）
+  page_interval: ${WEREAD_PAGE_INTERVAL:-1}
+  content_interval: ${WEREAD_CONTENT_INTERVAL:-2}
+  #采集前自动把不在书架上的公众号添加到书架（关注），false 则跳过
+  auto_add_to_shelf: ${WEREAD_AUTO_ADD_TO_SHELF:-true}
+log:
+  #日志文件路径，默认为空字符串，表示不输出到文件。如果要输出到文件，可以指定一个路径如：/var/log/we-mp-rss.log 如果为空就不纪录
+   file: ${LOG_FILE:-}
+  #日志级别，默认为INFO，可选DEBUG, INFO, WARNING, ERROR, CRITICAL
+   level: ${LOG_LEVEL:-INFO}
+export:
+   pdf: 
+    #是否启用PDF导出功能 默认False
+    enable: ${EXPORT_PDF:-False}
+    #PDF导出目录 默认./data/pdf
+    dir: ${EXPORT_PDF_DIR:-./data/pdf}
+   markdown:
+    #是否启用markdown导出功能 默认False
+    enable: ${EXPORT_MARKDOWN:-False}
+    #markdown导出目录 默认./data/markdown
+    dir: ${EXPORT_MARKDOWN_DIR:-./data/markdown}
+
+
+site:
+  name: ${SITE_NAME:-WeRss}
+  description: ${SITE_DESCRIPTION:-A WeChat Official Account RSS Reader}
+  keywords: ${SITE_KEYWORDS:-}WeChat,Official Account,RSS,Reader
+
+cascade:
+  enabled: ${CASCADE_ENABLED:-False}
+  node_type: ${CASCADE_NODE_TYPE:-child}
+  parent_api_url: ${CASCADE_PARENT_API_URL:-http://localhost:8001}
+  api_key: ${CASCADE_API_KEY:-}
+  api_secret: ${CASCADE_API_SECRET:-}
+  sync_interval: ${CASCADE_SYNC_INTERVAL:-300}
+  heartbeat_interval: ${CASCADE_HEARTBEAT_INTERVAL:-60}
+  # 子节点任务拉取间隔（秒），默认30秒
+  task_poll_interval: ${CASCADE_TASK_POLL_INTERVAL:-30}

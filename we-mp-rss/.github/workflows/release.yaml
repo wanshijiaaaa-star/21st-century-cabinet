@@ -1,0 +1,27 @@
+name: Release Zip
+on:
+  push:
+    tags:
+      "v*.*.*"
+  workflow_dispatch:  # 支持手动触发
+    inputs:
+      tag:
+        description: 'Release tag (e.g., v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.TOKEN }}
+          tag: ${{ github.event.inputs.tag || github.ref_name }}

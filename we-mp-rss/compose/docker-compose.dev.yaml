@@ -1,0 +1,93 @@
+services:
+  redis:
+    image: docker.1ms.run/redis:7-alpine
+    container_name: we-mp-rss-redis-dev
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 64mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  backend:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: we-mp-rss-backend:dev
+    container_name: we-mp-rss-backend-dev
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      DB: sqlite:///data/we_mp_rss.db
+      REDIS_URL: redis://redis:6379/0
+      PROXY_HTTP_URL: http://singbox:7890
+      # X Server 配置（默认启用 Xvfb）
+      ENABLE_XVFB: "true"
+      HEADLESS: "false"
+      DISPLAY: :99
+    ports:
+      - "8001:8001"
+    volumes:
+      - ../apis:/app/apis
+      - ../core:/app/core
+      - ../driver:/app/driver
+      - ../jobs:/app/jobs
+      - ../migrations:/app/migrations
+      - ../public:/app/public
+      - ../schemas:/app/schemas
+      - ../tools:/app/tools
+      - ../views:/app/views
+      - ../main.py:/app/main.py
+      - ../web.py:/app/web.py
+      - ../init_sys.py:/app/init_sys.py
+      - ../data_sync.py:/app/data_sync.py
+      - ../job.py:/app/job.py
+      - ../data:/app/data
+    depends_on:
+      redis:
+        condition: service_healthy
+      singbox:
+        condition: service_started
+
+  singbox:
+    image: ghcr.io/sagernet/sing-box:latest
+    container_name: we-mp-rss-singbox-dev
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      SINGBOX_INBOUND_PORT: 7890
+      SINGBOX_LOG_LEVEL: info
+    entrypoint:
+      - /bin/sh
+      - /etc/sing-box/run-singbox.sh
+    volumes:
+      - ./singbox/run-singbox.sh:/etc/sing-box/run-singbox.sh:ro
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: web_ui/Dockerfile.dev
+    image: we-mp-rss-frontend:dev
+    container_name: we-mp-rss-frontend-dev
+    restart: unless-stopped
+    environment:
+      VITE_API_BASE_URL: /
+      VITE_PROXY_TARGET: http://backend:8001/
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ../web_ui:/app/web_ui
+      - web_ui_node_modules:/app/web_ui/node_modules
+
+volumes:
+  web_ui_node_modules:
+  redis_data:

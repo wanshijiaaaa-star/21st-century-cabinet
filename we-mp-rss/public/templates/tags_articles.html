@@ -1,0 +1,99 @@
+{% include "includes/header.html" %}
+{% include "includes/articles_styles.html" %}
+<!-- 标签搜索表单 -->
+{% if tag %}
+<div class="search-form">
+    <form method="GET" action="/views/tag/{{tag.id}}">
+        <div class="search-row">
+            <div class="form-group">
+                <label for="keyword">关键词搜索</label>
+                <input type="text" id="keyword" name="keyword" class="form-control" value="{{keyword or ''}}" placeholder="搜索文章标题...">
+            </div>
+        </div>
+        
+        <div class="search-buttons">
+            <button type="submit" class="btn">🔍 搜索</button>
+            {% if keyword %}
+            <a href="/views/tag/{{tag.id}}" class="btn btn-secondary">🔄 清除筛选</a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{% endif %}
+<!-- 公众号信息 -->
+{% if info %}
+<div class="mp-info">
+    <div style="width: 48px; height: 48px; background: #e9ecef; border-radius: 4px; display: flex; align-items: center; justify-content: center;">
+        {% if info.mp_cover %}
+            <img src="{{info.mp_cover}}" alt="{{info.mp_name}}" width="50px"/>
+        {% endif %}
+    </div>
+    <div style="flex: 1;">
+        <div style="font-weight: 500; font-size: 1.1rem;">{{info.mp_name}}</div>
+        {% if info.mp_intro %}
+        <div class="text-muted" style="font-size: 0.9rem;">{{info.mp_intro}}</div>
+        {% endif %}
+    </div>
+</div>
+{%endif%}
+{% include "includes/tag_style.html" %}
+
+<!-- 标签信息头部 -->
+<div class="card">
+    <div class="tag-header">
+        {% if tag.cover %}
+        <img src="{{tag.cover}}" alt="{{tag.name}}" class="tag-cover">
+        {% else %}
+        <div class="tag-cover" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 2rem;">📚</div>
+        {% endif %}
+        <div class="tag-info">
+            <h1>{{tag.name}}</h1>
+            <p class="text-muted">{{tag.intro or "暂无简介"}}</p>
+            <div class="tag-stats">
+                <span class="stat-item">📺 {{tag.mp_count}} 个公众号</span>
+                <span class="stat-item">📄 {{tag.article_count}} 篇文章</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if articles %}
+<div class="card">
+    {% for article in articles %}
+    <div class="article-item">
+        {% if article.pic_url %}
+        <div class="article-cover">
+            <a href="/views/article/{{article.id}}">
+                <img src="{{article.pic_url}}" alt="{{article.title}}" loading="lazy"/>
+            </a>
+        </div>
+        {% endif %}
+        <div class="article-body">
+            <h3><a href="/views/article/{{article.id}}" style="color: inherit; text-decoration: none;">{{article.title}}</a></h3>
+            {% if article.description %}
+            <p class="text-muted article-desc">{{article.description}}</p>
+            {% endif %}
+            <div class="article-meta">
+                <a href="/views/articles?mp_id={{article.mp_id}}">
+                <span>
+                    <img src="{{article.mp_cover}}" style="width: 20px; height: 20px; border-radius: 50%; margin-right: 0.5rem;"/>
+                     {{article.mp_name}}
+                </span>
+                </a>
+                <span>🕐 {{article.publish_time}}</span>
+                {% if article.is_read %}
+                <span style="color: #28a745;">✓ 已读</span>
+                {% else %}
+                <span style="color: #6c757d;">◯ 未读</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+
+{% set item_name = "篇文章" %}
+{% include "includes/pagination.html" %}
+
+{% include "includes/footer.html" %}

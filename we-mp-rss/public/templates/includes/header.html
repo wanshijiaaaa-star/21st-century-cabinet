@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer" />
+    {% include 'includes/title.html' %}
+    <meta name="description" content="{{site.description}}">
+    <meta name="keywords" content="{{site.keywords}}">
+    <meta name="author" content="{{site.author}}">
+    <meta name="copyright" content="{{site.copyright}}">
+    <meta content="{{site.name}}" property="og:site_name">
+    <meta content="{{site.description}}" property="og:description">
+    <link rel="icon" href="/static/logo.svg">
+    <style>
+        /* 主题变量定义 */
+        :root {
+            --primary-color: #8B7355;
+            --primary-dark: #6B5344;
+            --secondary-color: #5D4E37;
+            --header-bg: linear-gradient(135deg, #D4C4A8 0%, #C4B49A 100%);
+            --bg-color: #F5F0E6;
+            --card-bg: #FFFEF9;
+            --text-color: #433422;
+            --text-muted: #7A6A5A;
+            --footer-bg: #D4C4A8;
+            --link-color: #8B7355;
+            --btn-bg: #8B7355;
+            --btn-hover: #6B5344;
+            --shadow-color: rgba(0,0,0,0.1);
+        }
+        
+        /* 蓝色主题 */
+        [data-theme="blue"] {
+            --primary-color: #2196F3;
+            --primary-dark: #1976D2;
+            --secondary-color: #1565C0;
+            --header-bg: linear-gradient(135deg, #2196F3 0%, #1565C0 100%);
+            --link-color: #2196F3;
+            --btn-bg: #2196F3;
+            --btn-hover: #1976D2;
+        }
+        
+        /* 绿色主题 */
+        [data-theme="green"] {
+            --primary-color: #4CAF50;
+            --primary-dark: #388E3C;
+            --secondary-color: #2E7D32;
+            --header-bg: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%);
+            --link-color: #4CAF50;
+            --btn-bg: #4CAF50;
+            --btn-hover: #388E3C;
+        }
+        
+        /* 橙色主题 */
+        [data-theme="orange"] {
+            --primary-color: #FF9800;
+            --primary-dark: #F57C00;
+            --secondary-color: #E65100;
+            --header-bg: linear-gradient(135deg, #FF9800 0%, #E65100 100%);
+            --link-color: #FF9800;
+            --btn-bg: #FF9800;
+            --btn-hover: #F57C00;
+        }
+        
+        /* 深色主题 */
+        [data-theme="dark"] {
+            --primary-color: #90CAF9;
+            --primary-dark: #64B5F6;
+            --secondary-color: #42A5F5;
+            --header-bg: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            --bg-color: #0f0f0f;
+            --card-bg: #1a1a1a;
+            --text-color: #e0e0e0;
+            --text-muted: #9e9e9e;
+            --footer-bg: #1a1a1a;
+            --link-color: #90CAF9;
+            --btn-bg: #90CAF9;
+            --btn-hover: #64B5F6;
+            --shadow-color: rgba(255,255,255,0.1);
+        }
+        
+        /* 护眼主题 */
+        [data-theme="sepia"] {
+            --primary-color: #8B7355;
+            --primary-dark: #6B5344;
+            --secondary-color: #5D4E37;
+            --header-bg: linear-gradient(135deg, #D4C4A8 0%, #C4B49A 100%);
+            --bg-color: #F5F0E6;
+            --card-bg: #FFFEF9;
+            --text-color: #433422;
+            --text-muted: #7A6A5A;
+            --footer-bg: #D4C4A8;
+            --link-color: #8B7355;
+            --btn-bg: #8B7355;
+            --btn-hover: #6B5344;
+        }
+        
+        /* 玫瑰红主题 */
+        [data-theme="rose"] {
+            --primary-color: #E91E63;
+            --primary-dark: #C2185B;
+            --secondary-color: #880E4F;
+            --header-bg: linear-gradient(135deg, #E91E63 0%, #880E4F 100%);
+            --link-color: #E91E63;
+            --btn-bg: #E91E63;
+            --btn-hover: #C2185B;
+        }
+        
+        /* 青色主题 */
+        [data-theme="teal"] {
+            --primary-color: #009688;
+            --primary-dark: #00796B;
+            --secondary-color: #00695C;
+            --header-bg: linear-gradient(135deg, #009688 0%, #00695C 100%);
+            --link-color: #009688;
+            --btn-bg: #009688;
+            --btn-hover: #00796B;
+        }
+        
+        /* 粉色主题 */
+        [data-theme="pink"] {
+            --primary-color: #EC407A;
+            --primary-dark: #D81B60;
+            --secondary-color: #AD1457;
+            --header-bg: linear-gradient(135deg, #F48FB1 0%, #EC407A 100%);
+            --link-color: #EC407A;
+            --btn-bg: #EC407A;
+            --btn-hover: #D81B60;
+        }
+        
+        /* 靛青主题 */
+        [data-theme="indigo"] {
+            --primary-color: #3F51B5;
+            --primary-dark: #303F9F;
+            --secondary-color: #1A237E;
+            --header-bg: linear-gradient(135deg, #5C6BC0 0%, #3F51B5 100%);
+            --link-color: #3F51B5;
+            --btn-bg: #3F51B5;
+            --btn-hover: #303F9F;
+        }
+        
+        /* 咖啡主题 */
+        [data-theme="coffee"] {
+            --primary-color: #795548;
+            --primary-dark: #5D4037;
+            --secondary-color: #4E342E;
+            --header-bg: linear-gradient(135deg, #8D6E63 0%, #5D4037 100%);
+            --link-color: #795548;
+            --btn-bg: #795548;
+            --btn-hover: #5D4037;
+        }
+        
+        /* 紫罗兰主题 */
+        [data-theme="violet"] {
+            --primary-color: #9C27B0;
+            --primary-dark: #7B1FA2;
+            --secondary-color: #6A1B9A;
+            --header-bg: linear-gradient(135deg, #BA68C8 0%, #9C27B0 100%);
+            --link-color: #9C27B0;
+            --btn-bg: #9C27B0;
+            --btn-hover: #7B1FA2;
+        }
+        
+        /* 深蓝主题 */
+        [data-theme="navy"] {
+            --primary-color: #3F51B5;
+            --primary-dark: #1A237E;
+            --secondary-color: #0D47A1;
+            --header-bg: linear-gradient(135deg, #1A237E 0%, #0D47A1 100%);
+            --bg-color: #E8EAF6;
+            --card-bg: #ffffff;
+            --link-color: #3F51B5;
+            --btn-bg: #3F51B5;
+            --btn-hover: #1A237E;
+        }
+        
+        /* 珊瑚色主题 */
+        [data-theme="coral"] {
+            --primary-color: #FF6B6B;
+            --primary-dark: #EE5A5A;
+            --secondary-color: #D84343;
+            --header-bg: linear-gradient(135deg, #FF6B6B 0%, #FF8E8E 100%);
+            --link-color: #FF6B6B;
+            --btn-bg: #FF6B6B;
+            --btn-hover: #EE5A5A;
+        }
+        
+        /* 薄荷绿主题 */
+        [data-theme="mint"] {
+            --primary-color: #26A69A;
+            --primary-dark: #00897B;
+            --secondary-color: #00796B;
+            --header-bg: linear-gradient(135deg, #26A69A 0%, #80CBC4 100%);
+            --bg-color: #E0F2F1;
+            --card-bg: #ffffff;
+            --link-color: #26A69A;
+            --btn-bg: #26A69A;
+            --btn-hover: #00897B;
+        }
+        
+        /* 薰衣草主题 */
+        [data-theme="lavender"] {
+            --primary-color: #9575CD;
+            --primary-dark: #7E57C2;
+            --secondary-color: #673AB7;
+            --header-bg: linear-gradient(135deg, #B39DDB 0%, #9575CD 100%);
+            --bg-color: #F3E5F5;
+            --card-bg: #ffffff;
+            --link-color: #9575CD;
+            --btn-bg: #9575CD;
+            --btn-hover: #7E57C2;
+        }
+        
+        /* 暖灰色主题 */
+        [data-theme="warmgray"] {
+            --primary-color: #78909C;
+            --primary-dark: #607D8B;
+            --secondary-color: #546E7A;
+            --header-bg: linear-gradient(135deg, #90A4AE 0%, #78909C 100%);
+            --bg-color: #ECEFF1;
+            --card-bg: #ffffff;
+            --link-color: #78909C;
+            --btn-bg: #78909C;
+            --btn-hover: #607D8B;
+        }
+        
+        /* 深紫色主题 */
+        [data-theme="deeppurple"] {
+            --primary-color: #7C4DFF;
+            --primary-dark: #651FFF;
+            --secondary-color: #6200EA;
+            --header-bg: linear-gradient(135deg, #7C4DFF 0%, #B388FF 100%);
+            --link-color: #7C4DFF;
+            --btn-bg: #7C4DFF;
+            --btn-hover: #651FFF;
+        }
+        
+        /* 金色主题 */
+        [data-theme="gold"] {
+            --primary-color: #FFB300;
+            --primary-dark: #FF8F00;
+            --secondary-color: #FF6F00;
+            --header-bg: linear-gradient(135deg, #FFB300 0%, #FFD54F 100%);
+            --link-color: #FFB300;
+            --btn-bg: #FFB300;
+            --btn-hover: #FF8F00;
+        }
+        
+        /* 冰蓝色主题 */
+        [data-theme="iceblue"] {
+            --primary-color: #4DD0E1;
+            --primary-dark: #26C6DA;
+            --secondary-color: #00BCD4;
+            --header-bg: linear-gradient(135deg, #4DD0E1 0%, #80DEEA 100%);
+            --bg-color: #E0F7FA;
+            --card-bg: #ffffff;
+            --link-color: #4DD0E1;
+            --btn-bg: #4DD0E1;
+            --btn-hover: #26C6DA;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: var(--text-color); background-color: var(--bg-color); transition: background-color 0.3s, color 0.3s; }
+        header { background: var(--header-bg); color: white; padding: 1rem 0; box-shadow: 0 2px 10px var(--shadow-color); }
+        .header-content { display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: bold; text-decoration: none; color: white; }
+        nav ul { list-style: none; display: flex; gap: 1rem; align-items: center; }
+        nav a { color: white; text-decoration: none; font-weight: 500; font-size: 0.9rem; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        .markdown-body{max-width: 1200px !important;}
+        /* 移动端汉堡菜单 */
+        .mobile-menu-toggle { display: none; background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; }
+        
+        /* 主题切换器样式 */
+        .theme-switcher {
+            position: relative;
+            margin-left: 1rem;
+        }
+        .theme-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 0.4rem 0.6rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+        }
+        .theme-btn:hover { background: rgba(255,255,255,0.3); }
+        .theme-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 4px 20px var(--shadow-color);
+            padding: 0.5rem;
+            min-width: 200px;
+            max-width: 320px;
+            z-index: 1000;
+        }
+        .theme-dropdown.show { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.25rem; }
+        .theme-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            cursor: pointer;
+            border-radius: 4px;
+            color: var(--text-color);
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+        .theme-option:hover { background: var(--bg-color); }
+        .theme-option.active { background: var(--bg-color); font-weight: 500; }
+        .theme-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid rgba(0,0,0,0.1);
+        }
+        
+        @media (max-width: 768px) {
+            .container { padding: 0 15px; }
+            .header-content { flex-wrap: wrap; }
+            .mobile-menu-toggle { display: block; }
+            nav { display: none; width: 100%; order: 3; }
+            nav.active { display: block; }
+            nav ul { flex-direction: column; gap: 0.5rem; padding-top: 1rem; }
+            .logo { font-size: 1.2rem; }
+            .theme-switcher { margin-left: 0; }
+            .theme-dropdown { right: -50px; }
+        }
+        main { min-height: calc(100vh - 236px); padding: 2rem 0; }
+        footer { background: var(--footer-bg); color: white; text-align: center; padding: 2rem 0; margin-top: 3rem; }
+        .card { background: var(--card-bg); border-radius: 8px; box-shadow: 0 2px 10px var(--shadow-color); padding: 1.5rem; margin-bottom: 1.5rem; transition: background-color 0.3s; }
+        .grid { display: grid; gap: 1.5rem; }
+        .grid-3 { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+        .grid-6 { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
+        .grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+        .btn { display: inline-block; padding: 0.4rem 0.8rem; background: var(--btn-bg); color: white; text-decoration: none; border-radius: 4px; border: none; cursor: pointer; transition: all 0.3s; font-size: 0.8rem; }
+        .btn:hover { background: var(--btn-hover); transform: translateY(-1px); box-shadow: 0 4px 8px var(--shadow-color); }
+        .btn-secondary { background: #6c757d; }
+        .btn-secondary:hover { background: #5a6268; }
+        .text-center { text-align: center; }
+        .text-muted { color: var(--text-muted); font-size:.8rem;}
+        .mt-2 { margin-top: 0.5rem; }
+        .mb-2 { margin-bottom: 0.5rem; }
+        .mb-4 { margin-bottom: 1rem; }
+        a { text-decoration: none; color: var(--link-color); }
+        a:hover { text-decoration: none; }
+        
+        @media (max-width: 768px) {
+            main { padding: 1rem 0; }
+            .card { padding: 1rem; margin-bottom: 1rem; }
+            .btn { padding: 0.4rem 0.7rem; font-size: 0.8rem; }
+            .grid-3 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    {% include "includes/fix.html" %}
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <a href="/views/home" class="logo">
+                    {{site.name}}
+                </a>
+                <button class="mobile-menu-toggle" id="menuToggle">☰</button>
+                <nav id="nav-menu">
+                    <ul>
+                        <li><a href="/views/home">首页</a></li>
+                        <li><a href="/views/tags">标签</a></li>
+                        <li><a href="/views/mps">公众号</a></li>
+                        <li><a href="/views/articles">搜索</a></li>
+                        <li class="theme-switcher">
+                            <button class="theme-btn" id="themeToggleBtn" title="切换主题">🎨</button>
+                            <div class="theme-dropdown" id="themeDropdown">
+                                <div class="theme-option" data-theme="default">
+                                    <span class="theme-color" style="background: linear-gradient(135deg, #D4C4A8, #C4B49A);"></span>
+                                    <span>默认</span>
+                                </div>
+                                <div class="theme-option" data-theme="blue">
+                                    <span class="theme-color" style="background: linear-gradient(135deg, #2196F3, #1565C0);"></span>
+                                    <span>清新蓝</span>
+                                </div>
+                                <div class="theme-option" data-theme="green">
+                                    <span class="theme-color" style="background: linear-gradient(135deg, #4CAF50, #2E7D32);"></span>
+                                    <span>自然绿</span>
+                                </div>
+                                <div class="theme-option" data-theme="orange">
+                                    <span class="theme-color" style="background: linear-gradient(135deg, #FF9800, #E65100);"></span>
+                                    <span>活力橙</span>
+                                </div>
+                                <div class="theme-option" data-theme="rose">
+                                    <span class="theme-color" style="background: linear-gradient(135deg, #E91E63, #880E4F);"></span>
+                                    <span>玫瑰红</span>
+                                </div>
+                                <div class="theme-option" data-theme="teal">
+                                    <span class="theme-color" style="background: linear-gradient(135deg, #009688, #00695C);"></span>
+                                    <span>青碧色</span>
+                                </div>
+                                <div class="theme-option" data-theme="pink">
+                                    <span class="theme-color" style="background: linear-gradient(135deg, #F48FB1, #EC407A);"></span>
+                                    <span>樱花粉</span>
+                                </div>
+                                <div class="theme-option" data-theme="indigo">
+                                    <span class="theme-color" style="background: linear-gradient(135deg, #5C6BC0, #3F51B5);"></span>
+                                    <span>靛青色</span>
+                                </div>
+                                <div class="theme-option" data-theme="violet">
+                                    <span class="theme-color" style="background: linear-gradient(135deg, #BA68C8, #9C27B0);"></span>
+                                    <span>紫罗兰</span>
+                                </div>
+                                <div class="theme-option" data-theme="coffee">
+                                    <span class="theme-color" style="background: linear-gradient(135deg, #8D6E63, #5D4037);"></span>
+                                    <span>咖啡棕</span>
+                                </div>
+                                <div class="theme-option" data-theme="navy">
+                                    <span class="theme-color" style="background: linear-gradient(135deg, #1A237E, #0D47A1);"></span>
+                                    <span>深海蓝</span>
+                                </div>
+                                <div class="theme-option" data-theme="dark">
+                                    <span class="theme-color" style="background: linear-gradient(135deg, #1a1a2e, #16213e);"></span>
+                                    <span>深色</span>
+                                </div>
+                                <div class="theme-option" data-theme="sepia">
+                                    <span class="theme-color" style="background: linear-gradient(135deg, #D4C4A8, #C4B49A);"></span>
+                                    <span>护眼</span>
+                                </div>
+                                <div class="theme-option" data-theme="coral">
+                                    <span class="theme-color" style="background: linear-gradient(135deg, #FF6B6B, #FF8E8E);"></span>
+                                    <span>珊瑚红</span>
+                                </div>
+                                <div class="theme-option" data-theme="mint">
+                                    <span class="theme-color" style="background: linear-gradient(135deg, #26A69A, #80CBC4);"></span>
+                                    <span>薄荷绿</span>
+                                </div>
+                                <div class="theme-option" data-theme="lavender">
+                                    <span class="theme-color" style="background: linear-gradient(135deg, #B39DDB, #9575CD);"></span>
+                                    <span>薰衣草</span>
+                                </div>
+                                <div class="theme-option" data-theme="warmgray">
+                                    <span class="theme-color" style="background: linear-gradient(135deg, #90A4AE, #78909C);"></span>
+                                    <span>暖灰色</span>
+                                </div>
+                                <div class="theme-option" data-theme="deeppurple">
+                                    <span class="theme-color" style="background: linear-gradient(135deg, #7C4DFF, #B388FF);"></span>
+                                    <span>深紫色</span>
+                                </div>
+                                <div class="theme-option" data-theme="gold">
+                                    <span class="theme-color" style="background: linear-gradient(135deg, #FFB300, #FFD54F);"></span>
+                                    <span>金色</span>
+                                </div>
+                                <div class="theme-option" data-theme="iceblue">
+                                    <span class="theme-color" style="background: linear-gradient(135deg, #4DD0E1, #80DEEA);"></span>
+                                    <span>冰蓝色</span>
+                                </div>
+                            </div>
+                        </li>
+                        <li><a href="https://github.com/rachelos/we-mp-rss" target="_blank" rel="noopener noreferrer">Github</a></li>
+                        <li><a href="https://gitee.com/rachel_os/we-mp-rss" target="_blank" rel="noopener noreferrer">Gitee</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </header>
+    <main>
+         <div class="container">
+           {% include "includes/breadcrumb.html" %}
+            {% if error %}
+            <div style="background: #f8d7da; color: #721c24; padding: 1rem; border-radius: 4px; margin-bottom: 2rem;">
+                <strong>错误：</strong> {{error}}
+            </div>
+            {% endif %}

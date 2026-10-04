@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  launchd 定时模板：每天 07:55 在 WeRSS 消息任务（默认 08:00）之前，于【宿主机】无头刷新
+  微信读书 Cookie。
+
+  为什么在宿主机而不是容器里做：
+  - 微信读书登录态 profile 由 macOS 钥匙串加密，容器内 Linux Chromium 解密不了；
+    容器只读取数据卷 wx.lic 的明文 Cookie 同步文章，不在容器内启动浏览器。
+  - 故刷新（首次扫码 + 每日自动）统一在本机用 Chrome 执行，写回 wx.lic。
+
+  使用步骤：
+    1. 将本文件复制到 ~/Library/LaunchAgents/com.user.we-mp-rss.refresh-weread.plist
+    2. 按需修改下面的 ProgramArguments 中的 python 路径与脚本路径
+    3. 加载：launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.user.we-mp-rss.refresh-weread.plist
+       （旧系统：launchctl load ~/Library/LaunchAgents/com.user.we-mp-rss.refresh-weread.plist）
+    4. 立即跑一次验证：launchctl start com.user.we-mp-rss.refresh-weread
+       或直接手动执行：python scripts/refresh_weread_cookie.py --headless
+    5. 首次建立登录态需 GUI 扫码（无 --headless）：
+       python scripts/refresh_weread_cookie.py
+    6. 卸载：launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.user.we-mp-rss.refresh-weread.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.user.we-mp-rss.refresh-weread</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/yangqing/.workbuddy/binaries/python/envs/default/bin/python3</string>
+    <string>/Users/yangqing/we-mp-rss-main/scripts/refresh_weread_cookie.py</string>
+    <string>--headless</string>
+  </array>
+
+  <!-- 每天 07:55 执行（在消息任务 08:00 之前） -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Minute</key>
+    <integer>55</integer>
+    <key>Hour</key>
+    <integer>7</integer>
+  </dict>
+
+  <!-- 登录后立刻跑一次，便于首次配置验证 -->
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/yangqing/wechat-rss-data/refresh_weread.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/yangqing/wechat-rss-data/refresh_weread.log</string>
+</dict>
+</plist>

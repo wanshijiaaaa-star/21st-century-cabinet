@@ -1,0 +1,34 @@
+# sing-box 代理服务独立部署配置
+# 用法: docker compose -f compose/singbox/docker-compose.yml up -d
+
+services:
+  singbox:
+    image: ghcr.io/sagernet/sing-box:latest
+    container_name: singbox-proxy
+    restart: unless-stopped
+    environment:
+      SINGBOX_INBOUND_PORT: 7890
+      SINGBOX_LOG_LEVEL: info
+    ports:
+      - "7890:7890"
+    entrypoint:
+      - /bin/sh
+      - /etc/sing-box/run-singbox.sh
+    volumes:
+      - ./run-singbox.sh:/etc/sing-box/run-singbox.sh:ro
+
+# 使用说明:
+# 1. 确保 .env 文件中配置了 PROXY_URL
+#    例如: PROXY_URL=socks5://user:pass@proxy.example.com:1080
+#
+# 2. 启动服务:
+#    docker compose -f compose/singbox/docker-compose.yml up -d
+#
+# 3. 验证代理:
+#    curl -x http://127.0.0.1:7890 https://ip.sb
+#
+# 4. 查看日志:
+#    docker logs singbox-proxy
+#
+# 5. 停止服务:
+#    docker compose -f compose/singbox/docker-compose.yml down

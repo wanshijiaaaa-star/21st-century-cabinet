@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- 微信读书 Cookie 刷新代理（常驻）。
+       容器在「执行」/定时任务前会自动调用它的 /refresh 端点刷新 Cookie，
+       无需手动敲命令。代理用本机 Chrome（macOS 钥匙串）完成浏览器刷新。 -->
+  <key>Label</key>
+  <string>com.user.we-mp-rss.weread-refresh-agent</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/yangqing/.workbuddy/binaries/python/envs/default/bin/python3</string>
+    <string>/Users/yangqing/we-mp-rss-main/scripts/host_weread_refresh_agent.py</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>WEREAD_LIC_PATH</key>
+    <string>/Users/yangqing/wechat-rss-data/wx.lic</string>
+    <key>WEREAD_PROFILE_DIR</key>
+    <string>/Users/yangqing/wechat-rss-data/weread-chrome-profile</string>
+    <key>WEREAD_AGENT_HOST</key>
+    <string>0.0.0.0</string>
+    <key>WEREAD_AGENT_PORT</key>
+    <string>9876</string>
+    <key>PATH</key>
+    <string>/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <!-- 开机/登录后自启，且崩溃自动重启 -->
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/yangqing/wechat-rss-data/logs/weread-refresh-agent.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/yangqing/wechat-rss-data/logs/weread-refresh-agent.log</string>
+</dict>
+</plist>

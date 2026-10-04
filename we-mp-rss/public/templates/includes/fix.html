@@ -1,0 +1,85 @@
+ <!-- 隐藏的img容器，用于预加载背景图片绕过referrer检测 -->
+    <div id="bg-preloader" style="position:absolute;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;" aria-hidden="true"></div>
+    <script>
+    (function() {
+        // 预加载背景图片，绕过referrer检测
+        var preloadedUrls = new Set();
+        var preloader = document.getElementById('bg-preloader');
+        
+        function preloadBackgroundImage(url) {
+            if (!url || preloadedUrls.has(url)) return;
+            preloadedUrls.add(url);
+            
+            var img = document.createElement('img');
+            img.src = url;
+            img.alt = '';
+            img.style.cssText = 'position:absolute;width:1px;height:1px;opacity:0;';
+            img.onerror = function() { preloader.removeChild(img); };
+            setTimeout(function() { try { preloader.removeChild(img); } catch(e) {} }, 10000);
+            preloader.appendChild(img);
+        }
+        
+        function extractUrlsFromStyle(style) {
+            if (!style) return [];
+            var urls = [];
+            var regex = /url\s*\(\s*['"]?([^'")\s]+)['"]?\s*\)/gi;
+            var match;
+            while ((match = regex.exec(style)) !== null) {
+                if (match[1] && !match[1].startsWith('data:')) {
+                    urls.push(match[1]);
+                }
+            }
+            return urls;
+        }
+        
+        function scanAndPreload() {
+            // 扫描所有元素的style属性
+            var allElements = document.querySelectorAll('[style]');
+            allElements.forEach(function(el) {
+                var style = el.getAttribute('style');
+                extractUrlsFromStyle(style).forEach(preloadBackgroundImage);
+            });
+            
+            // 扫描所有样式表中的背景图片
+            for (var i = 0; i < document.styleSheets.length; i++) {
+                try {
+                    var rules = document.styleSheets[i].cssRules || document.styleSheets[i].rules;
+                    for (var j = 0; j < rules.length; j++) {
+                        var style = rules[j].style;
+                        if (style) {
+                            extractUrlsFromStyle(style.cssText).forEach(preloadBackgroundImage);
+                        }
+                    }
+                } catch(e) {
+                    // 跨域样式表会报错，忽略
+                }
+            }
+        }
+        
+        // 页面加载完成后扫描
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', scanAndPreload);
+        } else {
+            scanAndPreload();
+        }
+        
+        // 监听DOM变化，处理动态加载的内容
+        var observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                mutation.addedNodes.forEach(function(node) {
+                    if (node.nodeType === 1) {
+                        if (node.getAttribute && node.getAttribute('style')) {
+                            extractUrlsFromStyle(node.getAttribute('style')).forEach(preloadBackgroundImage);
+                        }
+                        if (node.querySelectorAll) {
+                            node.querySelectorAll('[style]').forEach(function(el) {
+                                extractUrlsFromStyle(el.getAttribute('style')).forEach(preloadBackgroundImage);
+                            });
+                        }
+                    }
+                });
+            });
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    })();
+    </script>
