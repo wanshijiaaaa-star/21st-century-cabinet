@@ -72,18 +72,28 @@
   fill: currentColor;
 }
 
-.article-trash-action {
-  display: inline-grid;
-  place-items: center;
+.row-actions {
+  align-items: center;
+}
+
+.row-actions .mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 27px;
   height: 27px;
-  padding: 5px;
+  padding: 0;
+  line-height: 1;
   flex: 0 0 27px;
 }
 
+.article-trash-action {
+  display: inline-flex;
+}
+
 .article-trash-action .article-trash-icon {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
 }
 
 .nav-icon-trash {
@@ -97,8 +107,8 @@
 }
 
 .nav-trash-icon {
-  width: 13px;
-  height: 13px;
+  width: 18px;
+  height: 18px;
   margin: 0;
 }
 

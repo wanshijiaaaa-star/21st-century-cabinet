@@ -2,7 +2,7 @@ const cabinetCleanupSelection=new Set();
 
 function cabinetCleanupControls(){
   if(!state.view.startsWith('cat:'))return '';
-  if(!state.cleanupMode)return '<button class="quiet-action cleanup-toggle" id="cleanupToggle">批量清理</button>';
+  if(!state.cleanupMode)return '<button class="filter-btn list-action cleanup-toggle" id="cleanupToggle">批量清理</button>';
   const count=cabinetCleanupSelection.size;
   return `<span class="cleanup-count">已选 ${count} 条</span><button class="quiet-action cleanup-select-all" id="cleanupSelectAll">全选当前结果</button><button class="quiet-action cleanup-delete" id="cleanupDelete" ${count?'':'disabled'}>移入回收站${count?`（${count}）`:''}</button><button class="quiet-action cleanup-exit" id="cleanupExit">退出清理</button>`;
 }
@@ -135,7 +135,7 @@ function cabinetTrashPage(){
     const summary=String(article.summary||'').trim();
     return `<section class="trash-card"><div><div class="trash-meta">${cabinetEscape(source?.name||'原信息源')} · ${cabinetEscape(cats[source?.category]||'其他')} · ${cabinetEscape(deletedLabel)}移入</div><h2>${cabinetEscape(article.title||'未命名信息')}</h2>${summary?`<p>${cabinetEscape(summary)}</p>`:''}<div class="meta-row"><span class="tag">${article.read?'已读':'未读'}</span>${article.saved?'<span class="tag">已收藏</span>':''}<span class="tag">还可恢复 ${days} 天</span></div></div><div class="trash-actions"><button class="action-btn" data-trash-restore="${cabinetEscape(item.articleId)}">恢复</button><button class="action-btn trash-purge" data-trash-purge="${cabinetEscape(item.articleId)}">永久删除</button></div></section>`;
   }).join('');
-  return `<div class="page-head"><div><div class="eyebrow">${eye}</div><h1>${title}</h1><p>${description}</p></div><div class="head-stat"><div class="stat"><b>${state.trash.length}</b><span>条待清理</span></div></div></div><div class="trash-summary"><span>到期后正文与个人标记会清除，但文章不会被同步回来。</span><span class="filter-spacer"></span>${state.trash.length?'<button class="quiet-action trash-clear" id="trashClear">清空回收站</button>':''}</div>${rows||`<div class="empty"><div class="empty-mark trash-empty-mark">${trashIcon('empty-trash-icon')}</div><h3>回收站是空的</h3><p>删除的信息会在这里保留 7 天。</p></div>`}`;
+  return `<div class="page-head"><div><div class="eyebrow">${eye}</div><h1>${title}</h1><p>${description}</p></div><div class="head-stat"><div class="stat"><b>${state.trash.length}</b><span>条待清理</span></div></div></div><div class="trash-summary"><span>到期后正文与个人标记会清除，但文章不会被同步回来。</span><span class="filter-spacer"></span>${state.trash.length?'<button class="filter-btn list-action list-action-wide trash-clear" id="trashClear">清空回收站</button>':''}</div>${rows||`<div class="empty"><div class="empty-mark trash-empty-mark">${trashIcon('empty-trash-icon')}</div><h3>回收站是空的</h3><p>删除的信息会在这里保留 7 天。</p></div>`}`;
 }
 
 function cabinetWireCleanup(){
@@ -144,7 +144,14 @@ function cabinetWireCleanup(){
   $('#cleanupExit')&&($('#cleanupExit').onclick=()=>cabinetSetCleanupMode(false));
   $('#cleanupSelectAll')&&($('#cleanupSelectAll').onclick=()=>{visibleArticles().forEach(article=>cabinetCleanupSelection.add(article.id));render()});
   $('#cleanupDelete')&&($('#cleanupDelete').onclick=()=>cabinetMoveToTrash([...cabinetCleanupSelection],{batch:true}));
-  document.querySelectorAll('[data-cleanup-id]').forEach(input=>input.onchange=()=>{if(input.checked)cabinetCleanupSelection.add(input.dataset.cleanupId);else cabinetCleanupSelection.delete(input.dataset.cleanupId);render()});
+  document.querySelectorAll('[data-cleanup-id]').forEach(input=>input.onclick=event=>{
+    event.preventDefault();
+    event.stopPropagation();
+    const articleId=input.dataset.cleanupId;
+    if(cabinetCleanupSelection.has(articleId))cabinetCleanupSelection.delete(articleId);
+    else cabinetCleanupSelection.add(articleId);
+    render();
+  });
   document.querySelectorAll('[data-trash-one]').forEach(button=>button.onclick=event=>{event.stopPropagation();cabinetMoveToTrash([button.dataset.trashOne])});
   document.querySelectorAll('[data-trash-restore]').forEach(button=>button.onclick=()=>cabinetRestoreTrash([button.dataset.trashRestore]));
   document.querySelectorAll('[data-trash-purge]').forEach(button=>button.onclick=()=>cabinetPurgeTrash([button.dataset.trashPurge]));
