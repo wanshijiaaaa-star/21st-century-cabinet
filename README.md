@@ -43,6 +43,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\privacy-check.ps1
 
 ## 文档
 
+- [V2.0 发布交接与隐私检查](V2_RELEASE_HANDOFF.md)
 - [完整使用与开发说明](site/README.md)
 - [本机使用说明](site/本机使用说明.md)
 - [系统架构](site/docs/architecture.md)
