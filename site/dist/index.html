@@ -92,7 +92,7 @@
   <div class="modal" id="sourceModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <h2 id="modalTitle">添加信息源</h2><p class="modal-sub" id="modalSub">录入 RSS / Atom 地址，并决定它是否值得进入日常注意力队列。</p>
     <form id="sourceForm">
-      <div class="field"><label for="feedUrl">RSS / Atom 地址</label><input id="feedUrl" type="url" placeholder="http://127.0.0.1:8001/feed/MP_WXS_数字.rss" /><div class="field-help"><span>公众号需先由本机采集器生成；这里不是微信文章链接。</span><a href="http://127.0.0.1:8001/add-subscription" target="_blank" rel="noopener">打开公众号采集器 ↗</a></div></div>
+      <div class="field"><label for="feedUrl">RSS / Atom 地址</label><input id="feedUrl" type="url" placeholder="http://127.0.0.1:8001/feed/MP_WXS_数字.rss" /><div class="field-help"><span>公众号需先由本机采集器生成；这里不是微信文章链接。</span><a id="openCollectorLink" href="http://127.0.0.1:8001/add-subscription" target="_blank" rel="noopener">启动并打开公众号采集器 ↗</a></div></div>
       <div class="field"><label for="sourceName">来源名称</label><input id="sourceName" required placeholder="例如：田野研究通讯" /></div>
       <div class="field"><label for="sourceDescription">来源说明</label><input id="sourceDescription" placeholder="这个来源主要提供什么内容" /></div>
       <div class="field-grid"><div class="field"><label for="sourceTier">来源等级</label><select id="sourceTier"><option>B · 一般来源</option><option>A · 核心来源</option><option>C · 低优先级</option></select></div><div class="field"><label for="sourceCategory">信息类型</label><select id="sourceCategory"><option value="OTHER">其他</option><option value="ACADEMIC">学术信息</option><option value="NEWS">新闻</option><option value="LONGFORM">文献 / 长文</option><option value="COMMENTARY">评论 / 思想</option><option value="TECH">技术</option></select></div></div>
@@ -256,6 +256,28 @@
         else{rows.forEach((row,index)=>{const existing=state.sources.find(source=>(source.feedUrl||'').toLowerCase()===row.feedUrl.toLowerCase());const values={...row,inbox:row.inbox??row.tier==='A',enabled:true};if(existing)Object.assign(existing,values);else state.sources.push({id:`s${Date.now()}${index}`,...values,articles:0,unread:0,last:'尚未同步'})});persist();render();toast(`已导入 ${rows.length} 个来源`)}
       }catch{toast('导入失败，请确认本机服务仍在运行')}
     }
+    async function openCollectorAdmin(event){
+      event?.preventDefault();
+      const adminUrl='http://127.0.0.1:8001/add-subscription';
+      const target=window.open('about:blank','cabinet-collector');
+      if(target){target.document.title='正在启动公众号采集器';target.document.body.innerHTML='<p style="font:16px system-ui;padding:24px">正在启动公众号采集器，请留意可能弹出的首次配置窗口…</p>'}
+      try{
+        const startResponse=await fetch('/api/start-collector',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+        const startResult=await startResponse.json();
+        if(!startResponse.ok||!startResult.ok)throw new Error(startResult.error||'无法启动公众号采集器');
+        for(let attempt=0;attempt<160;attempt++){
+          const statusResponse=await fetch('/api/collector-status',{cache:'no-store'});
+          const status=await statusResponse.json();
+          if(status.ready){if(target)target.location.replace(status.url||adminUrl);else location.href=status.url||adminUrl;return}
+          if(status.state==='failed')throw new Error(status.error||'公众号采集器启动失败');
+          await new Promise(resolve=>setTimeout(resolve,750));
+        }
+        throw new Error('公众号采集器启动超时，请查看弹出的启动窗口');
+      }catch(error){
+        if(target&&!target.closed)target.close();
+        toast(error.message||'无法打开公众号采集器');
+      }
+    }
     async function openCollectorModal(){
       if(!backendReady){toast('请先启动21世纪内阁本机服务');return}
       $('#collectorSourceList').innerHTML='<div class="collector-source"><span></span><span>正在读取采集器…</span></div>';
@@ -289,6 +311,7 @@
     $('#searchInput').oninput=e=>{state.search=e.target.value;render()};$('#syncBtn').onclick=syncAll;$('#themeBtn').onclick=()=>{state.theme=document.documentElement.dataset.theme==='dark'?'light':'dark';applyTheme();render()};$('#addBtn').onclick=()=>openModal();$('#cancelModal').onclick=closeModal;$('#cancelCollectorModal').onclick=closeCollectorModal;$('#selectUnjoinedSources').onclick=selectUnjoinedSources;$('#importCollectorSources').onclick=importCollectorSources;$('#modalInbox').onclick=()=>{state.modalInbox=!state.modalInbox;$('#modalInbox').classList.toggle('on',state.modalInbox)};$('#modalEnabled').onclick=()=>{state.modalEnabled=!state.modalEnabled;$('#modalEnabled').classList.toggle('on',state.modalEnabled)};$('#sourceForm').onsubmit=e=>{e.preventDefault();const name=$('#sourceName').value.trim(),feedUrl=$('#feedUrl').value.trim(),tier=$('#sourceTier').value[0],category=$('#sourceCategory').value,description=$('#sourceDescription').value.trim()||'尚未填写来源说明。';if(!state.editingSourceId&&!feedUrl){toast('请填写 RSS / Atom 地址');return}if(state.editingSourceId){const s=src(state.editingSourceId);Object.assign(s,{name,feedUrl,tier,category,description,inbox:state.modalInbox,enabled:state.modalEnabled});persist();closeModal();render();toast('信息源已更新')}else{const id='s'+Date.now();state.sources.unshift({id,name,description,tier,category,inbox:state.modalInbox,enabled:state.modalEnabled,articles:0,unread:0,last:'尚未同步',feedUrl});persist();closeModal();state.view='sources';render();toast('来源已添加，可以开始同步')}};$('#scrim').onclick=()=>{closeReader();closeModal();closeCollectorModal();closeMobile()};$('#mobileMenu').onclick=toggleSidebar;matchMedia('(max-width:900px)').addEventListener('change',()=>{closeMobile();applySidebarState()});document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();$('#searchInput').focus()}if(e.key==='Escape'){closeReader();closeModal();closeCollectorModal();closeMobile()}});
     function registerWebMCP(){const mc=document.modelContext;if(!mc?.registerTool)return;const tools=[{name:'list_inbox_articles',title:'列出批红定案',description:'返回当前尚未处理、且来源规则或单篇选择允许进入批阅队列的文章。',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},execute:()=>state.articles.filter(a=>!a.read&&articleInInbox(a)).map(a=>({id:a.id,title:a.title,source:src(a.source)?.name}))},{name:'mark_article_read',title:'标记文章已读',description:'将指定文章标记为已读，并同步更新可见列表。',inputSchema:{type:'object',properties:{articleId:{type:'string'}},required:['articleId'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:({articleId})=>{const a=state.articles.find(x=>x.id===articleId);if(!a)throw new Error('文章不存在');a.read=true;persist();render();return {id:a.id,isRead:true}}},{name:'set_source_inbox',title:'设置来源是否进入 Inbox',description:'控制某个来源的新未读文章是否进入批阅队列，不影响同步。',inputSchema:{type:'object',properties:{sourceId:{type:'string'},includeInInbox:{type:'boolean'}},required:['sourceId','includeInInbox'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:({sourceId,includeInInbox})=>{const s=src(sourceId);if(!s)throw new Error('来源不存在');s.inbox=includeInInbox;persist();render();return {id:s.id,includeInInbox:s.inbox,enabled:s.enabled}}}];tools.forEach(t=>Promise.resolve(mc.registerTool(t)).catch(()=>{}))}
     async function init(){await loadBackend();state.articles.forEach(article=>{if(!Array.isArray(article.tags))article.tags=[];if(!Array.isArray(article.content))article.content=[article.summary||'请打开原文阅读。']});applyTheme();applySidebarState();render();registerWebMCP()}
+    $('#openCollectorLink').onclick=openCollectorAdmin;
     init();
   </script>
   <script src="./reader-features.js?v=20261003-v1"></script>

@@ -4,8 +4,10 @@ import argparse
 import hashlib
 import html
 import json
+import os
 import re
 import sqlite3
+import subprocess
 import threading
 import time
 import urllib.error
@@ -30,11 +32,17 @@ DATA = ROOT / "data"
 DB_PATH = DATA / "cabinet.db"
 BACKUP_DIR = DATA / "backups"
 COLLECTOR_DB_PATH = ROOT.parent / "we-mp-rss" / "data" / "db.db"
+COLLECTOR_ROOT = ROOT.parent / "we-mp-rss"
+COLLECTOR_DATA = COLLECTOR_ROOT / "data"
+COLLECTOR_VENV_PYTHON = Path(os.environ.get("LOCALAPPDATA", "")) / "CenturyCabinet" / "we-rss-venv" / "Scripts" / "python.exe"
 RETENTION_DAYS = 90
 SYNC_INTERVALS = {"A": 12 * 3600, "B": 24 * 3600, "C": 72 * 3600}
 MAX_FEED_BYTES = 8 * 1024 * 1024
 MAX_ARTICLE_BYTES = 4 * 1024 * 1024
 COLLECTOR_CONTENT_URL = "http://127.0.0.1:8001/api/v1/wx/articles/content/by-url"
+COLLECTOR_BASE_URL = "http://127.0.0.1:8001/"
+COLLECTOR_ADD_URL = "http://127.0.0.1:8001/add-subscription"
+COLLECTOR_LAUNCHER = ROOT / "start-collector.ps1"
 
 
 def now_iso() -> str:
@@ -142,6 +150,8 @@ class CabinetStore:
         BACKUP_DIR.mkdir(exist_ok=True)
         self.lock = threading.RLock()
         self.sync_lock = threading.Lock()
+        self.collector_launch_lock = threading.Lock()
+        self.collector_process: subprocess.Popen | None = None
         self.collector_refresh_timer: threading.Timer | None = None
         self.status = {
             "running": False,
@@ -558,6 +568,88 @@ class CabinetStore:
             for row in rows
         ]
 
+    def collector_status(self) -> dict:
+        request = urllib.request.Request(COLLECTOR_BASE_URL, headers={"User-Agent": "21st-Century-Cabinet/1.0"})
+        try:
+            with urllib.request.urlopen(request, timeout=1.5) as response:
+                if response.status < 500:
+                    return {"ready": True, "state": "ready", "url": COLLECTOR_ADD_URL}
+        except urllib.error.HTTPError as error:
+            if error.code < 500:
+                return {"ready": True, "state": "ready", "url": COLLECTOR_ADD_URL}
+        except (urllib.error.URLError, TimeoutError, OSError):
+            pass
+
+        process = self.collector_process
+        if process is not None:
+            exit_code = process.poll()
+            if exit_code is None:
+                return {"ready": False, "state": "starting", "url": COLLECTOR_ADD_URL}
+            return {
+                "ready": False,
+                "state": "failed",
+                "url": COLLECTOR_ADD_URL,
+                "error": (
+                    f"采集器启动进程已退出（代码 {exit_code}），请查看 "
+                    + ("we-mp-rss/data/logs/collector-error.log。" if COLLECTOR_DB_PATH.exists() else "弹出的启动窗口。")
+                ),
+            }
+        return {"ready": False, "state": "stopped", "url": COLLECTOR_ADD_URL}
+
+    def start_collector(self) -> dict:
+        status = self.collector_status()
+        if status["ready"] or status["state"] == "starting":
+            return status
+        if not COLLECTOR_LAUNCHER.exists():
+            raise ValueError("找不到公众号采集器启动脚本")
+
+        with self.collector_launch_lock:
+            status = self.collector_status()
+            if status["ready"] or status["state"] == "starting":
+                return status
+            try:
+                if COLLECTOR_DB_PATH.exists() and COLLECTOR_VENV_PYTHON.exists():
+                    log_root = COLLECTOR_DATA / "logs"
+                    log_root.mkdir(parents=True, exist_ok=True)
+                    environment = os.environ.copy()
+                    environment["WERSS_ADMIN_USER"] = "admin"
+                    with (log_root / "collector.log").open("a", encoding="utf-8") as stdout_log, (
+                        log_root / "collector-error.log"
+                    ).open("a", encoding="utf-8") as stderr_log:
+                        self.collector_process = subprocess.Popen(
+                            [
+                                str(COLLECTOR_VENV_PYTHON),
+                                "main.py",
+                                "-config",
+                                "data/config.yaml",
+                                "-job",
+                                "True",
+                                "-init",
+                                "True",
+                            ],
+                            cwd=str(COLLECTOR_ROOT),
+                            env=environment,
+                            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                            stdout=stdout_log,
+                            stderr=stderr_log,
+                        )
+                else:
+                    self.collector_process = subprocess.Popen(
+                        [
+                            "powershell.exe",
+                            "-NoProfile",
+                            "-ExecutionPolicy",
+                            "Bypass",
+                            "-File",
+                            str(COLLECTOR_LAUNCHER),
+                        ],
+                        cwd=str(ROOT),
+                        creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0),
+                    )
+            except OSError as error:
+                raise ValueError(f"无法启动公众号采集器：{error}") from error
+        return {"ready": False, "state": "starting", "url": COLLECTOR_ADD_URL}
+
     def schedule_collector_refresh(self, delay: float = 12) -> None:
         """Debounce collector webhooks, then read all updated RSS feeds once."""
         with self.lock:
@@ -781,6 +873,9 @@ class CabinetHandler(SimpleHTTPRequestHandler):
             except ValueError as error:
                 self.send_json({"ok": False, "error": str(error)}, 503)
             return
+        if path == "/api/collector-status":
+            self.send_json({"ok": True, **STORE.collector_status()})
+            return
         if path == "/api/status":
             self.send_json(dict(STORE.status))
             return
@@ -827,6 +922,10 @@ class CabinetHandler(SimpleHTTPRequestHandler):
             if path == "/api/collector-updated":
                 STORE.schedule_collector_refresh()
                 self.send_json({"ok": True, "message": "已安排读取采集器的新文章"}, 202)
+                return
+            if path == "/api/start-collector":
+                result = STORE.start_collector()
+                self.send_json({"ok": True, **result}, 200 if result["ready"] else 202)
                 return
             if path == "/api/sync":
                 started = STORE.start_sync(force=bool(body.get("force")))
