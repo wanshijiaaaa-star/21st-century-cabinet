@@ -67,20 +67,39 @@
 
 .trash-icon {
   display: block;
-  width: 17px;
-  height: 17px;
+  width: 16px;
+  height: 16px;
   fill: currentColor;
 }
 
 .article-trash-action {
-  display: grid;
+  display: inline-grid;
   place-items: center;
+  width: 27px;
+  height: 27px;
+  padding: 5px;
+  flex: 0 0 27px;
+}
+
+.article-trash-action .article-trash-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.nav-icon-trash {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 .nav-trash-icon {
-  width: 14px;
-  height: 14px;
-  margin: 0 auto;
+  width: 13px;
+  height: 13px;
+  margin: 0;
 }
 
 .trash-empty-mark {

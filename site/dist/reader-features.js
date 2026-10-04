@@ -59,7 +59,7 @@ nav=function(){
   const main=[['today','⌂','奏章呈送',c.today],['inbox','▣','批红定案',c.inbox],['continue','▶','继续阅读',c.cont],['saved','★','收藏',c.saved],['notes','✎','札记',noteArticles]];
   const catsNav=Object.entries(cats).filter(([key])=>key!=='OTHER').map(([key,value])=>['cat:'+key,categoryIcons[key],value,'']);
   const tiers=[['tier:A','A','核心来源',''],['tier:B','B','一般来源',''],['tier:C','C','低优先级','']];
-  const group=(label,items)=>`<div class="nav-group">${label?`<div class="nav-label">${label}</div>`:''}${items.map(([value,icon,text,count])=>`<button class="nav-btn ${state.view===value?'active':''}" data-view="${value}" onclick="setView('${value}')"><span class="nav-icon ${icon.length===1?'tier-letter':''}">${icon}</span><span>${text}</span>${count!==''?`<span class="nav-count">${count}</span>`:''}</button>`).join('')}</div>`;
+  const group=(label,items)=>`<div class="nav-group">${label?`<div class="nav-label">${label}</div>`:''}${items.map(([value,icon,text,count])=>`<button class="nav-btn ${state.view===value?'active':''}" data-view="${value}" onclick="setView('${value}')"><span class="nav-icon ${icon.length===1?'tier-letter':''} ${icon.includes('nav-trash-icon')?'nav-icon-trash':''}">${icon}</span><span>${text}</span>${count!==''?`<span class="nav-count">${count}</span>`:''}</button>`).join('')}</div>`;
   $('#nav').innerHTML=group('',main)+group('信息类型',catsNav)+group('来源等级',tiers)+group('管理',[['sources','◉','信息源',''],['trash',trashIcon('nav-trash-icon'),'回收站',''],['settings','⚙','设置','']]);
 };
 
