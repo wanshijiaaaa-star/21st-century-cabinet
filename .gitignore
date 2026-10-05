@@ -64,6 +64,7 @@
 /site-deploy*.tar.gz
 /site-deploy*.zip
 /release/
+/packaging/.build/
 
 # JavaScript debug logs.
 npm-debug.log*

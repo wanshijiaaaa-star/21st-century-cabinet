@@ -13,6 +13,16 @@ we-mp-rss/data/     # 采集器数据：私有配置、数据库、Cookie、缓�
 
 这两个目录会在首次运行或配置过程中自动创建，并已被根目录 `.gitignore` 忽略。GitHub 不会备份这些数据，用户需要自行备份。
 
+Windows 安装版不从源码目录运行。它把全部个人数据统一保存在：
+
+```text
+%LOCALAPPDATA%\CenturyCabinet\Data\
+├─ site\                         # 主站数据库与备份
+└─ collector-root\data\         # 采集器配置、数据库、Cookie 与缓存
+```
+
+安装版程序位于 `%LOCALAPPDATA%\Programs\CenturyCabinet`，必须继续与上述数据目录分离。覆盖安装只能替换程序；卸载必须默认保留个人数据。
+
 ## 二、V2.0 升级的基本原则
 
 1. 程序代码可以更新，两个 `data/` 目录必须原地保留。
@@ -20,6 +30,8 @@ we-mp-rss/data/     # 采集器数据：私有配置、数据库、Cookie、缓�
 3. 如 V2.0 需要改变数据库结构，应编写可重复执行的迁移程序；不要要求用户删除旧数据库重新开始。
 4. 开始升级前，先停止主站和采集器，并把两个 `data/` 目录复制到仓库外的备份位置。
 5. 先在备份或测试副本上验证迁移，再处理唯一的真实数据。
+6. 普通用户发行版必须继续自带私有运行时，不得要求用户安装 Python、Node.js、npm 或通过 CMD/PowerShell 启动。
+7. 安装、首次密码设置、启动和卸载必须保持图形界面；源码开发脚本不得进入安装负载。
 
 ## 三、发布前必须完成的隐私检查
 
@@ -75,6 +87,8 @@ git diff --cached
 - V2.0 状态或迁移说明文档；
 - Git 标签，例如 `v2.0.0`。
 
+更新版本号后，在 Windows 打包机运行 `packaging/build-release.ps1`，生成新的安装程序、独立卸载程序、发行 ZIP 和 SHA-256。`release/` 与 `packaging/.build/` 都是本机生成目录，不应提交 Git；只把最终成品上传到对应的 GitHub Release。
+
 建议先提交代码，再创建标签：
 
 ```powershell
@@ -93,10 +107,12 @@ git push origin main --follow-tags
 V2.0 可以发布的前提是：
 
 - 日常使用仍只在两个 `data/` 目录产生个人数据；
+- 安装版只在 `%LOCALAPPDATA%\CenturyCabinet\Data` 产生个人数据，覆盖安装不丢数据；
 - 从 V1.0 升级后，原有订阅、阅读记录、收藏和札记仍可用；
 - 隐私检查通过；
 - `git ls-files site/data we-mp-rss/data` 没有输出；
 - 从全新克隆仓库可以安装并启动；
+- 安装版全过程不显示终端，且“已安装的应用”、开始菜单和独立卸载程序均可卸载；
 - GitHub 上仅包含程序、文档和不含真实用户信息的示例数据；
 - V2.0 提交和 `v2.0.0` 标签指向同一份已验收代码。
 

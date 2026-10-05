@@ -28,13 +28,29 @@ from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parent
 DIST = ROOT / "dist"
-DATA = ROOT / "data"
+DATA = Path(os.environ.get("CENTURY_CABINET_SITE_DATA_DIR", str(ROOT / "data"))).resolve()
 DB_PATH = DATA / "cabinet.db"
 BACKUP_DIR = DATA / "backups"
-COLLECTOR_DB_PATH = ROOT.parent / "we-mp-rss" / "data" / "db.db"
-COLLECTOR_ROOT = ROOT.parent / "we-mp-rss"
-COLLECTOR_DATA = COLLECTOR_ROOT / "data"
-COLLECTOR_VENV_PYTHON = Path(os.environ.get("LOCALAPPDATA", "")) / "CenturyCabinet" / "we-rss-venv" / "Scripts" / "python.exe"
+COLLECTOR_ROOT = Path(
+    os.environ.get("CENTURY_CABINET_COLLECTOR_ROOT", str(ROOT.parent / "we-mp-rss"))
+).resolve()
+COLLECTOR_DATA = Path(
+    os.environ.get("CENTURY_CABINET_COLLECTOR_DATA_DIR", str(COLLECTOR_ROOT / "data"))
+).resolve()
+COLLECTOR_DB_PATH = COLLECTOR_DATA / "db.db"
+COLLECTOR_PYTHON = Path(
+    os.environ.get(
+        "CENTURY_CABINET_PYTHON",
+        str(Path(os.environ.get("LOCALAPPDATA", "")) / "CenturyCabinet" / "we-rss-venv" / "Scripts" / "python.exe"),
+    )
+).resolve()
+COLLECTOR_WORKDIR = Path(
+    os.environ.get("CENTURY_CABINET_COLLECTOR_WORKDIR", str(COLLECTOR_ROOT))
+).resolve()
+COLLECTOR_CONFIG = Path(
+    os.environ.get("CENTURY_CABINET_COLLECTOR_CONFIG", str(COLLECTOR_DATA / "config.yaml"))
+).resolve()
+RELEASE_MODE = os.environ.get("CENTURY_CABINET_RELEASE") == "1"
 RETENTION_DAYS = 90
 TRASH_RETENTION_DAYS = 7
 SYNC_INTERVALS = {"A": 12 * 3600, "B": 24 * 3600, "C": 72 * 3600}
@@ -794,7 +810,11 @@ class CabinetStore:
         status = self.collector_status()
         if status["ready"] or status["state"] == "starting":
             return status
-        if not COLLECTOR_LAUNCHER.exists():
+        collector_entry = COLLECTOR_ROOT / "main.py"
+        can_start_directly = COLLECTOR_DB_PATH.exists() and COLLECTOR_PYTHON.exists() and collector_entry.exists()
+        if not can_start_directly and RELEASE_MODE:
+            raise ValueError("公众号采集器尚未完成首次初始化，请重新打开“21世纪内阁”应用")
+        if not can_start_directly and not COLLECTOR_LAUNCHER.exists():
             raise ValueError("找不到公众号采集器启动脚本")
 
         with self.collector_launch_lock:
@@ -802,7 +822,7 @@ class CabinetStore:
             if status["ready"] or status["state"] == "starting":
                 return status
             try:
-                if COLLECTOR_DB_PATH.exists() and COLLECTOR_VENV_PYTHON.exists():
+                if can_start_directly:
                     log_root = COLLECTOR_DATA / "logs"
                     log_root.mkdir(parents=True, exist_ok=True)
                     environment = os.environ.copy()
@@ -812,16 +832,16 @@ class CabinetStore:
                     ).open("a", encoding="utf-8") as stderr_log:
                         self.collector_process = subprocess.Popen(
                             [
-                                str(COLLECTOR_VENV_PYTHON),
-                                "main.py",
+                                str(COLLECTOR_PYTHON),
+                                str(collector_entry),
                                 "-config",
-                                "data/config.yaml",
+                                str(COLLECTOR_CONFIG),
                                 "-job",
                                 "True",
                                 "-init",
                                 "True",
                             ],
-                            cwd=str(COLLECTOR_ROOT),
+                            cwd=str(COLLECTOR_WORKDIR),
                             env=environment,
                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                             stdout=stdout_log,
