@@ -20,7 +20,7 @@
 
 ## Windows 快速开始（推荐）
 
-普通用户请从 GitHub Releases 下载 `21世纪内阁-安装程序-1.0.2.exe`：
+普通用户请从 GitHub Releases 下载 `21st-Century-Cabinet-Setup-1.0.2.exe`：
 
 1. 双击安装程序，单击“安装”；
 2. 从桌面或开始菜单打开“21世纪内阁”；
