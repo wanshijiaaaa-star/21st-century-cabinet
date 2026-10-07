@@ -85,7 +85,7 @@ async def get_weread_status(current_user=Depends(get_current_user_or_ak)):
     ticket = config_ticket or data.get("ticket", "")
     vid = config_vid or data.get("vid", "")
     name = data.get("name", "")
-    gather_model = app_cfg.get("gather.model", "web") or "web"
+    gather_model = app_cfg.get("gather.model", "weread_mp") or "weread_mp"
 
     # 判断是否已配置
     has_cookie = bool(cookie and vid)

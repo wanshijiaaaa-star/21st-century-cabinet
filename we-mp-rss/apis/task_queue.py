@@ -1,5 +1,7 @@
 """任务队列管理API"""
-from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
+import ipaddress
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from typing import Optional
 from core.auth import get_current_user_or_ak
 from core.queue import TaskQueue, ContentTaskQueue, get_all_queues_status
@@ -10,6 +12,50 @@ from core.log import logger
 import asyncio
 
 router = APIRouter(prefix="/task-queue", tags=["任务队列"])
+
+
+def _require_loopback(request: Request) -> None:
+    """Restrict the Cabinet bridge to callers on this computer."""
+    host = request.client.host if request.client else ""
+    try:
+        address = ipaddress.ip_address(host)
+        is_loopback = address.is_loopback or bool(
+            address.version == 6
+            and address.ipv4_mapped
+            and address.ipv4_mapped.is_loopback
+        )
+    except ValueError:
+        is_loopback = host.lower() == "localhost"
+    if not is_loopback:
+        raise HTTPException(status_code=403, detail="This endpoint is only available locally")
+
+
+@router.post("/cabinet/sync-all", summary="触发本机内阁同步全部公众号")
+async def sync_all_for_local_cabinet(request: Request):
+    """Queue a full collection run for the local Cabinet reader."""
+    _require_loopback(request)
+    from core.queue import TaskQueue
+    from jobs.cabinet_maintenance import build_cabinet_task
+    from jobs.mps import add_job
+
+    status = TaskQueue.get_detailed_status()
+    if status.get("pending_count") or status.get("current_task"):
+        return success_response(
+            data={"queued": 0, "already_running": True, "queue": status},
+            message="公众号采集队列正在运行",
+        )
+
+    result = add_job(task=build_cabinet_task())
+    return success_response(
+        data={**result, "already_running": False, "queue": TaskQueue.get_detailed_status()},
+        message="已开始采集全部公众号",
+    )
+
+
+@router.get("/cabinet/status", summary="查询本机内阁公众号同步状态")
+async def local_cabinet_sync_status(request: Request):
+    _require_loopback(request)
+    return success_response(data=TaskQueue.get_detailed_status())
 
 @router.get("/status", summary="获取任务队列状态")
 async def get_queue_status(

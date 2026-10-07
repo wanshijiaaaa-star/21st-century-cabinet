@@ -322,7 +322,7 @@ namespace CenturyCabinet.Setup
         private static void RegisterUninstaller()
         {
             string versionPath = Path.Combine(InstallerProgram.InstallRoot, "VERSION");
-            string version = File.Exists(versionPath) ? File.ReadAllText(versionPath).Trim() : "1.0.1";
+            string version = File.Exists(versionPath) ? File.ReadAllText(versionPath).Trim() : "1.0.2";
             using (RegistryKey key = Registry.CurrentUser.CreateSubKey(InstallerProgram.RegistryKey))
             {
                 if (key == null)

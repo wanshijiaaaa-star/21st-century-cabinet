@@ -130,6 +130,19 @@ namespace CenturyCabinet.Launcher
             {
                 File.Copy(Path.Combine(collectorApp, "config.example.yaml"), config);
             }
+            MigrateCollectorConfig(config);
+        }
+
+        private static void MigrateCollectorConfig(string configPath)
+        {
+            const string oldDefault = "model: ${GATHER.MODEL:-web}";
+            const string newDefault = "model: ${GATHER.MODEL:-weread_mp}";
+            string current = File.ReadAllText(configPath);
+            string migrated = current.Replace(oldDefault, newDefault);
+            if (!String.Equals(current, migrated, StringComparison.Ordinal))
+            {
+                File.WriteAllText(configPath, migrated);
+            }
         }
 
         private static void SyncDirectory(string source, string destination)

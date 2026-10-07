@@ -123,7 +123,7 @@ gather:
   content: ${GATHER.CONTENT:-False}
   #采集模式，web模式（可采集到发布链接)，api模式（可采集临时链接），app模式（采集最新消息）
   #weread_mp 使用微信读书 Web 接口采集公众号文章，需要下方 Cookie 与 x-wr-ticket
-  model: ${GATHER.MODEL:-web}
+  model: ${GATHER.MODEL:-weread_mp}
   #是否自动检查未采集文章内容，默认False
   content_auto_check: ${GATHER.CONTENT_AUTO_CHECK:-True}
   #自动检查未采集文章内容的时间间隔 单位秒默认59分钟 允许值 1-59分钟之间 默认59分钟

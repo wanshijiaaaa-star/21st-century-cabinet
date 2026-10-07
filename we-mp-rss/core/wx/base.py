@@ -68,7 +68,7 @@ class WxGather:
         - weread       : 微信读书通道，采集书架笔记、划线和书评
         - weread_mp    : 微信读书 Web 通道，采集公众号文章与正文
         """
-        type=type or cfg.get("gather.model","web")
+        type=type or cfg.get("gather.model", "weread_mp")
         print(f"采集模式:{type}")
         if type=="free_publish":
             from core.wx.model.free_publish import MpsFreePublish

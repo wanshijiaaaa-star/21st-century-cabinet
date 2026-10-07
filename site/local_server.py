@@ -59,7 +59,74 @@ MAX_ARTICLE_BYTES = 4 * 1024 * 1024
 COLLECTOR_CONTENT_URL = "http://127.0.0.1:8001/api/v1/wx/articles/content/by-url"
 COLLECTOR_BASE_URL = "http://127.0.0.1:8001/"
 COLLECTOR_ADD_URL = "http://127.0.0.1:8001/add-subscription"
+COLLECTOR_SYNC_URL = "http://127.0.0.1:8001/api/v1/wx/task-queue/cabinet/sync-all"
+COLLECTOR_SYNC_STATUS_URL = "http://127.0.0.1:8001/api/v1/wx/task-queue/cabinet/status"
 COLLECTOR_LAUNCHER = ROOT / "start-collector.ps1"
+GITHUB_RELEASES_API = "https://api.github.com/repos/wanshijiaaaa-star/21st-century-cabinet/releases/latest"
+GITHUB_RELEASES_URL = "https://github.com/wanshijiaaaa-star/21st-century-cabinet/releases/latest"
+
+
+def read_current_version() -> str:
+    for path in (ROOT.parent / "VERSION", ROOT.parent.parent / "VERSION"):
+        try:
+            version = path.read_text(encoding="utf-8").strip()
+        except OSError:
+            continue
+        if version:
+            return version
+    return "1.0.2"
+
+
+CURRENT_VERSION = read_current_version()
+
+
+def version_key(value: str) -> tuple[int, int, int]:
+    match = re.search(r"\d+(?:\.\d+){1,2}", str(value))
+    if not match:
+        raise ValueError("版本号格式不正确")
+    parts = [int(part) for part in match.group(0).split(".")]
+    return tuple((parts + [0, 0, 0])[:3])
+
+
+def check_for_update() -> dict:
+    request = urllib.request.Request(
+        GITHUB_RELEASES_API,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": f"21st-Century-Cabinet/{CURRENT_VERSION}",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=8) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        if error.code == HTTPStatus.NOT_FOUND:
+            raise ValueError("GitHub Releases 暂无可用版本") from error
+        raise ValueError(f"GitHub 暂时无法响应（{error.code}）") from error
+    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as error:
+        raise ValueError("无法连接 GitHub，请检查网络后重试") from error
+
+    if not isinstance(payload, dict):
+        raise ValueError("GitHub 返回了无法识别的版本信息")
+    tag_name = str(payload.get("tag_name") or "").strip()
+    match = re.search(r"\d+(?:\.\d+){1,2}", tag_name)
+    if not match:
+        raise ValueError("最新发行版缺少有效版本号")
+    latest_version = match.group(0)
+    release_url = str(payload.get("html_url") or GITHUB_RELEASES_URL).strip()
+    allowed_prefix = "https://github.com/wanshijiaaaa-star/21st-century-cabinet/releases/"
+    if not release_url.startswith(allowed_prefix):
+        release_url = GITHUB_RELEASES_URL
+    return {
+        "ok": True,
+        "currentVersion": CURRENT_VERSION,
+        "latestVersion": latest_version,
+        "updateAvailable": version_key(latest_version) > version_key(CURRENT_VERSION),
+        "releaseUrl": release_url,
+        "releaseName": str(payload.get("name") or tag_name).strip(),
+        "publishedAt": payload.get("published_at"),
+    }
 
 
 def now_iso() -> str:
@@ -159,6 +226,38 @@ def parse_published(value: str) -> datetime | None:
         return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
     except ValueError:
         return None
+
+
+def latest_collector_entries(
+    results: list[tuple[str, list[dict], str | None]],
+    collector_source_ids: set[str],
+) -> list[tuple[str, list[dict], str | None]]:
+    """Keep only the newest local publication date from collector RSS results."""
+    dated_entries: list[tuple[dict, datetime]] = []
+    for source_id, entries, error in results:
+        if error or source_id not in collector_source_ids:
+            continue
+        for entry in entries:
+            published = parse_published(str(entry.get("publishedAt") or ""))
+            if published:
+                dated_entries.append((entry, published.astimezone()))
+    if not dated_entries:
+        return results
+
+    newest_date = max(published.date() for _, published in dated_entries)
+    filtered = []
+    for source_id, entries, error in results:
+        if source_id in collector_source_ids and not error:
+            entries = [
+                entry
+                for entry in entries
+                if (
+                    (published := parse_published(str(entry.get("publishedAt") or "")))
+                    and published.astimezone().date() == newest_date
+                )
+            ]
+        filtered.append((source_id, entries, error))
+    return filtered
 
 
 class CabinetStore:
@@ -871,7 +970,9 @@ class CabinetStore:
                 self.collector_refresh_timer.cancel()
 
             def refresh() -> None:
-                self.start_sync(force=True)
+                # The collector has already finished its own update. Only read
+                # the refreshed RSS here; do not start another collection run.
+                self.start_sync(force=True, collect_collector=False)
 
             self.collector_refresh_timer = threading.Timer(delay, refresh)
             self.collector_refresh_timer.daemon = True
@@ -889,14 +990,19 @@ class CabinetStore:
             return True
         return (datetime.now(timezone.utc) - last).total_seconds() >= SYNC_INTERVALS.get(source.get("tier", "B"), 86400)
 
-    def start_sync(self, force: bool = False) -> bool:
+    def start_sync(self, force: bool = False, collect_collector: bool = False) -> bool:
         if self.status["running"]:
             return False
-        thread = threading.Thread(target=self._sync, args=(force,), daemon=True, name="cabinet-sync")
+        thread = threading.Thread(
+            target=self._sync,
+            args=(force, collect_collector),
+            daemon=True,
+            name="cabinet-sync",
+        )
         thread.start()
         return True
 
-    def _sync(self, force: bool) -> None:
+    def _sync(self, force: bool, collect_collector: bool = False) -> None:
         if not self.sync_lock.acquire(blocking=False):
             return
         try:
@@ -907,7 +1013,18 @@ class CabinetStore:
             if not targets:
                 self.status.update({"running": False, "phase": "idle", "message": "所有来源都已是最新"})
                 return
+            collector_targets = [
+                source for source in targets
+                if str(source.get("feedUrl") or "").startswith("http://127.0.0.1:8001/feed/")
+            ]
+            collector_error = ""
+            if collect_collector and collector_targets:
+                try:
+                    self._collect_subscribed_accounts()
+                except Exception as error:  # noqa: BLE001 - continue importing existing RSS
+                    collector_error = str(error)
             results = []
+            self.status.update({"phase": "syncing", "checked": 0, "total": len(targets), "message": "正在读取全部信息源"})
             with ThreadPoolExecutor(max_workers=2, thread_name_prefix="feed") as pool:
                 future_map = {pool.submit(fetch_feed, source): source for source in targets}
                 for future in as_completed(future_map):
@@ -917,6 +1034,10 @@ class CabinetStore:
                     except Exception as error:  # noqa: BLE001 - local service reports per-source failure
                         results.append((source["id"], [], str(error)))
                     self.status["checked"] += 1
+            results = latest_collector_entries(
+                results,
+                {source["id"] for source in collector_targets},
+            )
             by_source = {source["id"]: source for source in state["sources"]}
             existing_by_url = {article.get("url"): article for article in state["articles"] if article.get("url")}
             existing_by_key = {(article.get("source"), article.get("title")): article for article in state["articles"]}
@@ -963,11 +1084,56 @@ class CabinetStore:
                 "running": False,
                 "phase": "idle",
                 "lastSyncAt": now_iso(),
-                "message": f"同步完成：新增 {self.status['added']} 篇，失败 {self.status['failed']} 个来源",
+                "message": (
+                    f"同步完成：新增 {self.status['added']} 篇，失败 {self.status['failed']} 个来源"
+                    + (f"；公众号采集器：{collector_error}" if collector_error else "")
+                ),
             })
         finally:
             self.status["running"] = False
             self.sync_lock.release()
+
+    def _collector_json(self, url: str, method: str = "GET", timeout: float = 8) -> dict:
+        body = b"{}" if method == "POST" else None
+        request = urllib.request.Request(
+            url,
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "21st-Century-Cabinet/1.0",
+            },
+            method=method,
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as error:
+            raise RuntimeError(f"无法连接公众号采集器：{error}") from error
+        if payload.get("code") != 0:
+            raise RuntimeError(str(payload.get("message") or "公众号采集器返回错误"))
+        return payload.get("data") or {}
+
+    def _collect_subscribed_accounts(self, timeout: float = 600) -> None:
+        """Start collector work and wait until its queue has drained."""
+        result = self._collector_json(COLLECTOR_SYNC_URL, method="POST")
+        total = int(result.get("total") or result.get("queue", {}).get("pending_count") or 0)
+        deadline = time.monotonic() + timeout
+        self.status.update({
+            "phase": "collecting",
+            "checked": 0,
+            "total": total,
+            "message": "正在采集公众号最新文章",
+        })
+        while time.monotonic() < deadline:
+            queue_status = self._collector_json(COLLECTOR_SYNC_STATUS_URL)
+            pending = int(queue_status.get("pending_count") or 0)
+            current = queue_status.get("current_task")
+            if total:
+                self.status["checked"] = max(0, total - pending - (1 if current else 0))
+            if pending == 0 and not current:
+                return
+            time.sleep(1)
+        raise RuntimeError("公众号采集超过 10 分钟仍未完成")
 
     def apply_retention(self, state: dict) -> None:
         cutoff = datetime.now(timezone.utc) - timedelta(days=RETENTION_DAYS)
@@ -1086,7 +1252,18 @@ class CabinetHandler(SimpleHTTPRequestHandler):
             return
         if path == "/api/state":
             state = STORE.load()
-            self.send_json({**state, "configured": STORE.configured(), "retentionDays": RETENTION_DAYS})
+            self.send_json({
+                **state,
+                "configured": STORE.configured(),
+                "retentionDays": RETENTION_DAYS,
+                "version": CURRENT_VERSION,
+            })
+            return
+        if path == "/api/check-update":
+            try:
+                self.send_json(check_for_update())
+            except ValueError as error:
+                self.send_json({"ok": False, "error": str(error)}, HTTPStatus.SERVICE_UNAVAILABLE)
             return
         if path == "/api/collector-sources":
             try:
@@ -1167,7 +1344,8 @@ class CabinetHandler(SimpleHTTPRequestHandler):
                 self.send_json({"ok": True, **result}, 200 if result["ready"] else 202)
                 return
             if path == "/api/sync":
-                started = STORE.start_sync(force=bool(body.get("force")))
+                force = bool(body.get("force"))
+                started = STORE.start_sync(force=force, collect_collector=force)
                 self.send_json({"ok": True, "started": started, "status": dict(STORE.status)}, 202)
                 return
             self.send_error(HTTPStatus.NOT_FOUND)

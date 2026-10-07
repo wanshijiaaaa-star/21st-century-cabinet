@@ -16,6 +16,16 @@ if (-not (Test-Path -LiteralPath $configPath)) {
     Write-Host '已创建本机私有配置：we-mp-rss/data/config.yaml'
 }
 
+$configText = Get-Content -Raw -LiteralPath $configPath
+$migratedConfig = $configText.Replace(
+    'model: ${GATHER.MODEL:-web}',
+    'model: ${GATHER.MODEL:-weread_mp}'
+)
+if ($migratedConfig -ne $configText) {
+    Set-Content -LiteralPath $configPath -Value $migratedConfig -Encoding utf8 -NoNewline
+    Write-Host '已将公众号默认采集通道切换为微信读书。'
+}
+
 if (-not (Test-Path -LiteralPath $venvPython)) {
     & py -3.13 -m venv $venvRoot
     if ($LASTEXITCODE -ne 0) {

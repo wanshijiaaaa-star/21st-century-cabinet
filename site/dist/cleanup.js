@@ -128,14 +128,19 @@ async function cabinetTrashFromReader(articleId){
 
 function cabinetTrashPage(){
   const [eye,title,description]=pageInfo();
-  const rows=state.trash.map(item=>{
+  const query=state.search.trim().toLowerCase();
+  const items=state.trash.filter(item=>{
+    const article=item.article||{},source=src(article.source);
+    return !query||`${article.title||''} ${article.summary||''} ${source?.name||''}`.toLowerCase().includes(query);
+  });
+  const rows=items.map(item=>{
     const article=item.article||{},source=src(article.source);
     const purgeTime=Date.parse(item.purgeAfter),days=Number.isFinite(purgeTime)?Math.max(1,Math.ceil((purgeTime-Date.now())/(24*60*60*1000))):7;
     const deletedTime=Date.parse(item.deletedAt),deletedLabel=Number.isFinite(deletedTime)?new Intl.DateTimeFormat('zh-CN',{month:'long',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(deletedTime)):'刚刚';
     const summary=String(article.summary||'').trim();
     return `<section class="trash-card"><div><div class="trash-meta">${cabinetEscape(source?.name||'原信息源')} · ${cabinetEscape(cats[source?.category]||'其他')} · ${cabinetEscape(deletedLabel)}移入</div><h2>${cabinetEscape(article.title||'未命名信息')}</h2>${summary?`<p>${cabinetEscape(summary)}</p>`:''}<div class="meta-row"><span class="tag">${article.read?'已读':'未读'}</span>${article.saved?'<span class="tag">已收藏</span>':''}<span class="tag">还可恢复 ${days} 天</span></div></div><div class="trash-actions"><button class="action-btn" data-trash-restore="${cabinetEscape(item.articleId)}">恢复</button><button class="action-btn trash-purge" data-trash-purge="${cabinetEscape(item.articleId)}">永久删除</button></div></section>`;
   }).join('');
-  return `<div class="page-head"><div><div class="eyebrow">${eye}</div><h1>${title}</h1><p>${description}</p></div><div class="head-stat"><div class="stat"><b>${state.trash.length}</b><span>条待清理</span></div></div></div><div class="trash-summary"><span>到期后正文与个人标记会清除，但文章不会被同步回来。</span><span class="filter-spacer"></span>${state.trash.length?'<button class="filter-btn list-action list-action-wide trash-clear" id="trashClear">清空回收站</button>':''}</div>${rows||`<div class="empty"><div class="empty-mark trash-empty-mark">${trashIcon('empty-trash-icon')}</div><h3>回收站是空的</h3><p>删除的信息会在这里保留 7 天。</p></div>`}`;
+  return `<div class="page-head"><div><div class="eyebrow">${eye}</div><h1>${title}</h1><p>${description}</p></div><div class="head-stat"><div class="stat"><b>${items.length}</b><span>条待清理</span></div></div></div><div class="trash-summary"><span>到期后正文与个人标记会清除，但文章不会被同步回来。</span><span class="filter-spacer"></span>${state.trash.length?'<button class="filter-btn list-action list-action-wide trash-clear" id="trashClear">清空回收站</button>':''}</div>${rows||`<div class="empty"><div class="empty-mark trash-empty-mark">${trashIcon('empty-trash-icon')}</div><h3>${query?'没有匹配的已删除信息':'回收站是空的'}</h3><p>${query?'试试更换本页搜索词。':'删除的信息会在这里保留 7 天。'}</p></div>`}`;
 }
 
 function cabinetWireCleanup(){

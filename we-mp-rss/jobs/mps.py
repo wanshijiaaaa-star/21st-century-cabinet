@@ -232,7 +232,7 @@ def add_job(feeds:list[Feed]=None,task:MessageTask=None,isTest=False):
     # 微信读书模式：在「执行 / 定时任务」真正同步文章前，若 Cookie 过期则自动
     # 请宿主机刷新代理去刷新（容器不跑浏览器，见 scripts/host_weread_refresh_agent.py）。
     # 这样用户无需手动敲命令——点执行或定时触发时即自动保活 Cookie。
-    if not isTest and (cfg.get("gather.model") or "web") == "weread_mp":
+    if not isTest and (cfg.get("gather.model") or "weread_mp") == "weread_mp":
         try:
             from core.weread_cookie_refresh import request_host_refresh
             res = request_host_refresh()
@@ -253,19 +253,23 @@ def add_job(feeds:list[Feed]=None,task:MessageTask=None,isTest=False):
     if feeds is None and task is not None:
         feeds = get_feeds(task)
 
+    feeds = feeds or []
+
     # 初始化任务追踪
     if task and not isTest and feeds:
         tracker.start_task(task.id, len(feeds))
 
+    queued_count = 0
     for feed in feeds:
         # 使用公众号名称作为任务显示名称
-        TaskQueue.add_task(do_job, feed, task, isTest, task_name=feed.mp_name)
+        if TaskQueue.add_task(do_job, feed, task, isTest, task_name=feed.mp_name):
+            queued_count += 1
         if isTest:
             print(f"测试任务，{feed.mp_name}，加入队列成功")
             break
         print(f"{feed.mp_name}，加入队列成功")
     print_success(TaskQueue.get_queue_info())
-    pass
+    return {"queued": queued_count, "total": len(feeds)}
 import json
 def get_feeds(task:MessageTask=None):
      mps = json.loads(task.mps_id) if task.mps_id else []
