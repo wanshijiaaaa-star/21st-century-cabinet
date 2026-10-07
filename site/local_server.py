@@ -74,7 +74,7 @@ def read_current_version() -> str:
             continue
         if version:
             return version
-    return "1.0.2"
+    return "1.1.0"
 
 
 CURRENT_VERSION = read_current_version()

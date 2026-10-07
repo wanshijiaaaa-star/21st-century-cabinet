@@ -12,7 +12,7 @@ $packagingRoot = $PSScriptRoot
 $repositoryRoot = Split-Path -Parent $packagingRoot
 $version = (Get-Content -LiteralPath (Join-Path $repositoryRoot 'VERSION') -Raw).Trim()
 if (-not $OutputDirectory) {
-    $OutputDirectory = Join-Path $repositoryRoot 'release'
+    $OutputDirectory = Join-Path $repositoryRoot "release\v$version"
 }
 $OutputDirectory = [System.IO.Path]::GetFullPath($OutputDirectory)
 $buildRoot = [System.IO.Path]::GetFullPath((Join-Path $packagingRoot '.build'))
@@ -22,6 +22,65 @@ $runtimeRoot = Join-Path $stageRoot 'Runtime'
 $payloadZip = Join-Path $buildRoot 'payload.zip'
 $iconPath = Join-Path $repositoryRoot 'site\assets\cabinet-icon.ico'
 $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+Add-Type -AssemblyName System.IO.Compression
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+function New-Utf8Zip([string]$SourceDirectory, [string]$ZipPath) {
+    if (Test-Path -LiteralPath $ZipPath) {
+        Remove-Item -LiteralPath $ZipPath -Force
+    }
+    $archiveStream = [System.IO.File]::Create($ZipPath)
+    try {
+        $archive = [System.IO.Compression.ZipArchive]::new(
+            $archiveStream,
+            [System.IO.Compression.ZipArchiveMode]::Create,
+            $true,
+            [System.Text.Encoding]::UTF8)
+        try {
+            foreach ($file in Get-ChildItem -LiteralPath $SourceDirectory -File -Recurse) {
+                $entryName = $file.FullName.Substring($SourceDirectory.Length).TrimStart('\', '/') -replace '\\', '/'
+                [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                    $archive,
+                    $file.FullName,
+                    $entryName,
+                    [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+            }
+        }
+        finally {
+            $archive.Dispose()
+        }
+    }
+    finally {
+        $archiveStream.Dispose()
+    }
+}
+
+function Assert-Payload([string]$ZipPath) {
+    $archive = [System.IO.Compression.ZipFile]::OpenRead($ZipPath)
+    try {
+        $names = @{}
+        foreach ($entry in $archive.Entries) {
+            if ($entry.FullName.Contains([char]0xFFFD)) {
+                throw "发行负载中存在乱码文件名：$($entry.FullName)"
+            }
+            $names[$entry.FullName] = $true
+        }
+        foreach ($required in @(
+            'CenturyCabinet.exe',
+            'Uninstall-CenturyCabinet.exe',
+            'VERSION',
+            'App/site/local_server.py',
+            'Runtime/pythonw.exe'
+        )) {
+            if (-not $names.ContainsKey($required)) {
+                throw "发行负载缺少文件：$required"
+            }
+        }
+    }
+    finally {
+        $archive.Dispose()
+    }
+}
 
 function Assert-ChildPath([string]$Path, [string]$ExpectedRoot) {
     $fullPath = [System.IO.Path]::GetFullPath($Path).TrimEnd([System.IO.Path]::DirectorySeparatorChar)
@@ -162,8 +221,8 @@ Copy-Item -LiteralPath (Join-Path $repositoryRoot 'THIRD_PARTY_NOTICES.md') -Des
 Copy-Item -LiteralPath $iconPath -Destination (Join-Path $stageRoot 'cabinet-icon.ico')
 
 Write-Host '3/6 编译无终端图形启动器和卸载器...'
-$launcherOutput = Join-Path $stageRoot '21世纪内阁.exe'
-$uninstallerOutput = Join-Path $stageRoot '卸载21世纪内阁.exe'
+$launcherOutput = Join-Path $stageRoot 'CenturyCabinet.exe'
+$uninstallerOutput = Join-Path $stageRoot 'Uninstall-CenturyCabinet.exe'
 Invoke-Compiler @(
     '/nologo',
     '/target:winexe',
@@ -190,22 +249,11 @@ Invoke-Compiler @(
 )
 
 Write-Host '4/6 压缩离线应用负载...'
-if (Test-Path -LiteralPath $payloadZip) {
-    Remove-Item -LiteralPath $payloadZip -Force
-}
-Push-Location $stageRoot
-try {
-    & tar.exe -a -c -f $payloadZip *
-    if ($LASTEXITCODE -ne 0) {
-        throw "离线负载压缩失败，退出代码：$LASTEXITCODE"
-    }
-}
-finally {
-    Pop-Location
-}
+New-Utf8Zip -SourceDirectory $stageRoot -ZipPath $payloadZip
+Assert-Payload -ZipPath $payloadZip
 
 Write-Host '5/6 编译图形安装程序...'
-$installerOutput = Join-Path $OutputDirectory "21世纪内阁-安装程序-$version.exe"
+$installerOutput = Join-Path $OutputDirectory "CenturyCabinet-Setup-$version.exe"
 Invoke-Compiler @(
     '/nologo',
     '/target:winexe',
@@ -224,33 +272,15 @@ Invoke-Compiler @(
     (Join-Path $packagingRoot 'installer\ShellLink.cs')
 )
 
-Write-Host '6/6 生成独立卸载包、说明和校验值...'
-$standaloneUninstaller = Join-Path $OutputDirectory '21世纪内阁-卸载程序.exe'
-Copy-Item -LiteralPath $uninstallerOutput -Destination $standaloneUninstaller
-Copy-Item -LiteralPath (Join-Path $packagingRoot '发行版说明.md') -Destination $OutputDirectory
+Write-Host '6/6 生成说明和校验值...'
+Copy-Item -LiteralPath (Join-Path $packagingRoot '发行版说明.md') -Destination (Join-Path $OutputDirectory 'Release-Notes.md')
 
-$artifacts = @($installerOutput, $standaloneUninstaller)
+$artifacts = @($installerOutput)
 $checksums = foreach ($artifact in $artifacts) {
     $hash = Get-FileHash -LiteralPath $artifact -Algorithm SHA256
     "$($hash.Hash.ToLowerInvariant())  $([System.IO.Path]::GetFileName($artifact))"
 }
 $checksums | Set-Content -LiteralPath (Join-Path $OutputDirectory 'SHA256SUMS.txt') -Encoding utf8
-
-$archivePath = Join-Path $OutputDirectory "21世纪内阁-发行版-$version.zip"
-Push-Location $OutputDirectory
-try {
-    & tar.exe -a -c -f $archivePath `
-        ([System.IO.Path]::GetFileName($installerOutput)) `
-        ([System.IO.Path]::GetFileName($standaloneUninstaller)) `
-        '发行版说明.md' `
-        'SHA256SUMS.txt'
-    if ($LASTEXITCODE -ne 0) {
-        throw "发行归档压缩失败，退出代码：$LASTEXITCODE"
-    }
-}
-finally {
-    Pop-Location
-}
 
 Write-Host ''
 Write-Host '发行版构建完成：' -ForegroundColor Green

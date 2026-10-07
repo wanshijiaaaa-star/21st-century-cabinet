@@ -22,7 +22,8 @@ namespace CenturyCabinet.Uninstall
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
-            string installRoot = ResolveInstallRoot();
+            string installRoot = arguments.Length > 1 && arguments[0] == "--from-temp"
+                ? arguments[1] : ResolveInstallRoot();
             string currentExecutable = Application.ExecutablePath;
             if (IsBelow(currentExecutable, installRoot) &&
                 (arguments.Length == 0 || arguments[0] != "--from-temp"))
@@ -31,7 +32,9 @@ namespace CenturyCabinet.Uninstall
                     Path.GetTempPath(),
                     "CenturyCabinet-uninstall-" + Guid.NewGuid().ToString("N") + ".exe");
                 File.Copy(currentExecutable, temporaryCopy, true);
-                Process.Start(new ProcessStartInfo(temporaryCopy, "--from-temp") { UseShellExecute = true });
+                Process.Start(new ProcessStartInfo(
+                    temporaryCopy,
+                    "--from-temp \"" + installRoot + "\"") { UseShellExecute = true });
                 return;
             }
 
@@ -55,8 +58,13 @@ namespace CenturyCabinet.Uninstall
                 string registered = key == null ? null : key.GetValue("InstallLocation") as string;
                 if (!String.IsNullOrWhiteSpace(registered))
                 {
-                    return registered;
+                    return Path.GetFullPath(registered).TrimEnd(Path.DirectorySeparatorChar);
                 }
+            }
+            string besideExecutable = Path.GetDirectoryName(Application.ExecutablePath);
+            if (IsManagedInstall(besideExecutable))
+            {
+                return besideExecutable;
             }
             return Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -82,6 +90,72 @@ namespace CenturyCabinet.Uninstall
             {
                 throw new InvalidOperationException("卸载目录校验失败。\r\n" + fullPath);
             }
+        }
+
+        internal static void ValidateInstallRoot(string path)
+        {
+            if (String.IsNullOrWhiteSpace(path) || !Path.IsPathRooted(path))
+            {
+                throw new InvalidOperationException("无法确认安装目录，已停止卸载。");
+            }
+            string full = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar);
+            string driveRoot = Path.GetPathRoot(full).TrimEnd(Path.DirectorySeparatorChar);
+            string dataRoot = Path.GetFullPath(UserRoot).TrimEnd(Path.DirectorySeparatorChar);
+            if (String.Equals(full, driveRoot, StringComparison.OrdinalIgnoreCase) ||
+                IsSameOrBelow(dataRoot, full) || IsSameOrBelow(full, dataRoot) ||
+                String.Equals(full, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("卸载目录不安全，已停止卸载：\r\n" + full);
+            }
+            foreach (string protectedRoot in new[] {
+                Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+                Environment.GetFolderPath(Environment.SpecialFolder.System),
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86)
+            })
+            {
+                if (!String.IsNullOrWhiteSpace(protectedRoot) &&
+                    (String.Equals(full, Path.GetFullPath(protectedRoot).TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase) ||
+                     (IsBelow(full, protectedRoot) &&
+                      (protectedRoot == Environment.GetFolderPath(Environment.SpecialFolder.Windows) ||
+                       protectedRoot == Environment.GetFolderPath(Environment.SpecialFolder.System)))))
+                {
+                    throw new InvalidOperationException("卸载目录不安全，已停止卸载：\r\n" + full);
+                }
+            }
+            for (string current = full; !String.IsNullOrEmpty(current); current = Path.GetDirectoryName(current))
+            {
+                if (Directory.Exists(current) &&
+                    (new DirectoryInfo(current).Attributes & FileAttributes.ReparsePoint) != 0)
+                {
+                    throw new InvalidOperationException("卸载路径包含目录链接，已停止卸载：\r\n" + full);
+                }
+                string parent = Path.GetDirectoryName(current);
+                if (String.IsNullOrEmpty(parent) || String.Equals(parent, current, StringComparison.OrdinalIgnoreCase))
+                {
+                    break;
+                }
+            }
+            if (!IsManagedInstall(full))
+            {
+                throw new InvalidOperationException("所选目录不是完整的21世纪内阁安装目录，已停止卸载：\r\n" + full);
+            }
+        }
+
+        internal static bool IsManagedInstall(string path)
+        {
+            return !String.IsNullOrWhiteSpace(path) && Directory.Exists(path) &&
+                File.Exists(Path.Combine(path, "VERSION")) &&
+                File.Exists(Path.Combine(path, "App", "site", "local_server.py")) &&
+                File.Exists(Path.Combine(path, "Runtime", "pythonw.exe"));
+        }
+
+        internal static bool IsSameOrBelow(string candidate, string root)
+        {
+            string fullCandidate = Path.GetFullPath(candidate).TrimEnd(Path.DirectorySeparatorChar);
+            string fullRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar);
+            return String.Equals(fullCandidate, fullRoot, StringComparison.OrdinalIgnoreCase) ||
+                fullCandidate.StartsWith(fullRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
         }
 
         internal static bool IsBelow(string candidate, string root)
@@ -248,14 +322,10 @@ namespace CenturyCabinet.Uninstall
             UseWaitCursor = true;
             try
             {
-                string expectedInstall = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "Programs",
-                    "CenturyCabinet");
-                UninstallerProgram.ValidateExactPath(installRoot, expectedInstall);
+                UninstallerProgram.ValidateInstallRoot(installRoot);
                 UninstallerProgram.StopManagedProcesses(installRoot);
-                UninstallerProgram.RemoveShortcuts();
                 UninstallerProgram.DeleteDirectory(installRoot);
+                UninstallerProgram.RemoveShortcuts();
 
                 if (deleteData.Checked)
                 {
